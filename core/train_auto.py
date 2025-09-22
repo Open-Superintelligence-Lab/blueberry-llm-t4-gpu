@@ -31,9 +31,7 @@ def parse_arguments():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
-    # Megatron options
-    parser.add_argument("--use-megatron", action="store_true", help="Force Megatron backend (enable Megatron)")
-    parser.add_argument("--no-megatron", action="store_true", help="Force native backend (disable Megatron)")
+    # Single T4 GPU - no Megatron options needed
     
     return parser.parse_args()
 
@@ -49,13 +47,8 @@ def main():
     # Auto-configure everything
     configurator = auto_configure()
     
-    # Override Megatron settings if specified
-    if args.use_megatron:
-        configurator.config.use_megatron = True
-        print("🚀 Megatron forced enabled via --use-megatron flag")
-    elif args.no_megatron:
-        configurator.config.use_megatron = False
-        print("🚀 Megatron forced disabled via --no-megatron flag")
+    # Single T4 GPU - no Megatron support
+    print("🚀 Single T4 GPU training - Megatron disabled")
     
     configurator.print_config()
     

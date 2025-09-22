@@ -42,10 +42,10 @@ class SystemConfig:
             self.capability = torch.cuda.get_device_capability(0)
             self.device_name = torch.cuda.get_device_name(0)
             
-            # Feature detection based on compute capability
-            self.has_fp8_support = self.capability >= (9, 0)  # Blackwell+
-            self.has_tensor_cores = self.capability >= (7, 0)  # Volta+
-            self.has_bf16_support = self.capability >= (8, 0)  # Ampere+
+            # Feature detection based on compute capability (T4 optimized)
+            self.has_fp8_support = False  # T4 doesn't support FP8
+            self.has_tensor_cores = self.capability >= (7, 0)  # Volta+ (T4 has tensor cores)
+            self.has_bf16_support = False  # T4 doesn't support BF16
             
             # Memory information
             self.total_memory = torch.cuda.get_device_properties(0).total_memory
@@ -92,22 +92,13 @@ class SystemConfig:
                 return "unknown"
     
     def get_optimal_dtype(self) -> torch.dtype:
-        """Get the optimal data type for this GPU architecture."""
-        if self.architecture == "t4":
-            return torch.float16  # T4 is optimized for FP16
-        elif self.has_fp8_support:
-            return torch.float8_e4m3fn
-        elif self.has_bf16_support:
-            return torch.bfloat16
-        else:
-            return torch.float16
+        """Get the optimal data type for T4 GPU architecture."""
+        return torch.float16  # T4 is optimized for FP16
     
     def supports_feature(self, feature: str) -> bool:
         """Check if the current GPU supports a specific feature."""
         feature_map = {
-            "fp8": self.has_fp8_support,
             "tensor_cores": self.has_tensor_cores,
-            "bf16": self.has_bf16_support,
         }
         return feature_map.get(feature, False)
     
@@ -119,9 +110,7 @@ class SystemConfig:
             "device_name": self.device_name,
             "architecture": self.architecture,
             "memory_gb": self.memory_gb,
-            "has_fp8_support": self.has_fp8_support,
             "has_tensor_cores": self.has_tensor_cores,
-            "has_bf16_support": self.has_bf16_support,
             "optimal_dtype": str(self.get_optimal_dtype()),
         }
     

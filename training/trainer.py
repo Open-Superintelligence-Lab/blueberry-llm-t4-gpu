@@ -31,7 +31,7 @@ def train_with_megatron(
     resume_from_checkpoint: Optional[str] = None
 ) -> Tuple[nn.Module, Dict[str, Any]]:
     """
-    Training function for single T4 GPU (Megatron disabled for single GPU).
+    Single T4 GPU training - Megatron disabled.
     
     Args:
         model: Model to train
@@ -44,10 +44,9 @@ def train_with_megatron(
     Returns:
         Tuple of (trained_model, final_metrics)
     """
-    print("🚀 Single T4 GPU training - using native implementation")
-    print("   Megatron-LM is designed for multi-GPU, falling back to native training")
+    print("🚀 Single T4 GPU training - Megatron disabled")
     
-    # Use native training for single GPU
+    # Use native training for single T4 GPU
     return train_model_native(model, train_loader, val_loader, config, device, resume_from_checkpoint)
 
 

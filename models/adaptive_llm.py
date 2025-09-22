@@ -382,29 +382,15 @@ class AdaptiveStandardLLM(nn.Module):
 
 def should_use_megatron(config: AdaptiveMoEModelConfig) -> bool:
     """
-    Determine if Megatron-LM should be used based on configuration and hardware.
+    Single T4 GPU - Megatron disabled.
     
     Args:
         config: Model configuration
         
     Returns:
-        True if Megatron should be used, False for native backend
+        Always False for single T4 GPU
     """
-    # Don't use Megatron if explicitly disabled
-    if not config.use_megatron:
-        return False
-    
-    # Only use Megatron with multiple GPUs
-    if torch.cuda.device_count() <= 1:
-        return False
-    
-    # Check if Megatron dependencies are available
-    try:
-        import megatron.core
-        return True
-    except ImportError:
-        print("⚠️ Megatron-LM not available, falling back to native backend")
-        return False
+    return False  # Single T4 GPU - no Megatron support
 
 
 def create_model(config: AdaptiveMoEModelConfig, model_type: str = "moe") -> nn.Module:
@@ -418,12 +404,7 @@ def create_model(config: AdaptiveMoEModelConfig, model_type: str = "moe") -> nn.
     Returns:
         Model instance
     """
-    # Check if we should use Megatron backend
-    if should_use_megatron(config):
-        from .megatron_wrapper import create_megatron_model
-        return create_megatron_model(config, model_type)
-    
-    # Use native backend
+    # Single T4 GPU - use native backend only
     if model_type == "moe":
         return AdaptiveMoEMinimalLLM(config)
     elif model_type == "standard":

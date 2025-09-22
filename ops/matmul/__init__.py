@@ -38,11 +38,6 @@ class MatmulRegistry:
                 lambda: SYSTEM_CONFIG.architecture == "t4" and SYSTEM_CONFIG.has_tensor_cores,
                 _fallback_impl.matmul_fp16
             ),
-            # BF16 matmul for T4 (if supported)
-            (
-                lambda: SYSTEM_CONFIG.architecture == "t4" and SYSTEM_CONFIG.has_bf16_support,
-                _fallback_impl.matmul_fp16  # Use FP16 as T4 doesn't have native BF16
-            ),
         ])
         
         # Generic tensor core support for non-T4 GPUs
@@ -179,10 +174,7 @@ def matmul_fp16(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
 
 def matmul_bf16(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
     """BF16 matmul - falls back to FP16 for T4 GPU."""
-    if SYSTEM_CONFIG.has_bf16_support:
-        return _fallback_impl.matmul_fp16(x, w)  # Use FP16 as T4 doesn't have native BF16
-    else:
-        return matmul(x, w)
+    return _fallback_impl.matmul_fp16(x, w)  # T4 doesn't have native BF16, use FP16
 
 
 if __name__ == "__main__":

@@ -56,13 +56,9 @@ class AdaptiveMoEModelConfig:
     load_balancing_weight: float = 0.01
 
     # GPU-adaptive parameters (optimized for T4)
-    use_fp8: bool = False  # T4 doesn't support FP8
     use_adaptive_matmul: bool = True  # Use adaptive matmul operations
     
-    # Single GPU training parameters
-    use_megatron: bool = False  # Disabled for single T4 GPU
-    tensor_parallel_size: int = 1  # Single GPU
-    pipeline_parallel_size: int = 1  # Single GPU
+    # Single GPU training parameters (T4 optimized)
 
     def __post_init__(self):
         """Post-initialization to validate and adapt configuration based on hardware."""
@@ -72,25 +68,10 @@ class AdaptiveMoEModelConfig:
         # Auto-detect optimal settings based on T4 GPU
         if SYSTEM_CONFIG.architecture == "t4":
             print("🚀 T4 GPU detected - using FP16 optimization")
-            # T4 is optimized for FP16, disable FP8
-            self.use_fp8 = False
-        elif SYSTEM_CONFIG.has_bf16_support:
-            print("🚀 BF16 acceleration enabled")
         else:
             print("📋 Using FP16 precision (T4 optimized)")
-            # Disable FP8 if not supported
-            self.use_fp8 = False
         
-        # Note: Megatron is disabled by default. Use --use-megatron flag to enable.
-        # Auto-detect Megatron usage based on GPU count
-        # if SYSTEM_CONFIG.device_count > 1 and not hasattr(self, '_megatron_auto_detected'):
-        #     self._megatron_auto_detected = True
-        #     if not self.use_megatron:  # Only auto-enable if not explicitly set
-        #         self.use_megatron = True
-        #         # Auto-detect optimal parallelism sizes
-        #         self.tensor_parallel_size = min(SYSTEM_CONFIG.device_count, 8)  # Max 8 for tensor parallel
-        #         print(f"🚀 Megatron-LM auto-enabled for {SYSTEM_CONFIG.device_count} GPUs")
-        #         print(f"   📊 Tensor parallel size: {self.tensor_parallel_size}")
+        # Single T4 GPU - no distributed training needed
     
     def get_optimal_dtype(self):
         """Get the optimal data type for this configuration."""
@@ -99,10 +80,8 @@ class AdaptiveMoEModelConfig:
     def supports_feature(self, feature: str) -> bool:
         """Check if the current configuration supports a specific feature."""
         feature_map = {
-            "fp8": self.use_fp8 and SYSTEM_CONFIG.has_fp8_support,
             "adaptive_matmul": self.use_adaptive_matmul,
             "tensor_cores": SYSTEM_CONFIG.has_tensor_cores,
-            "bf16": SYSTEM_CONFIG.has_bf16_support,
         }
         return feature_map.get(feature, False)
     
@@ -114,7 +93,6 @@ class AdaptiveMoEModelConfig:
             "moe": f"{self.num_experts}experts-top{self.expert_top_k}",
             "training": f"{self.max_steps}steps-bs{self.batch_size}",
             "gpu_features": {
-                "fp8": self.supports_feature("fp8"),
                 "adaptive_matmul": self.supports_feature("adaptive_matmul"),
                 "tensor_cores": self.supports_feature("tensor_cores"),
             },
@@ -149,7 +127,6 @@ def get_t4_optimized_config() -> AdaptiveMoEModelConfig:
         num_experts=8,  # Good expert count for T4
         expert_top_k=2,
         gradient_accumulation_steps=3,  # Balanced for T4
-        use_fp8=False,  # T4 doesn't support FP8
         use_adaptive_matmul=True,
         muon_lr=0.01,
         eval_every=250,
