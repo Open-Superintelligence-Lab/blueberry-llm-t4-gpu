@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Auto-configuration for Blueberry LLM
-Detects hardware and automatically configures optimal training setup
+T4-specific configuration for Blueberry LLM
+Optimized for single Tesla T4 GPU training setup
 """
 
 import os
@@ -36,7 +36,7 @@ class AutoConfig:
     # Performance (T4-optimized)
     use_amp: bool
 
-class BlueberryAutoConfigurator:
+class BlueberryT4Configurator:
     """One class that does everything"""
     
     def __init__(self):
@@ -93,7 +93,7 @@ class BlueberryAutoConfigurator:
     
     def print_config(self):
         """Print detected configuration"""
-        print("🫐 Blueberry LLM Auto-Configuration")
+        print("🫐 Blueberry LLM T4-Configuration")
         print("=" * 50)
         
         print("🚀 Mode: T4 GPU Training")
@@ -126,11 +126,11 @@ class BlueberryAutoConfigurator:
             use_amp=self.config.use_amp,
         )
 
-def auto_configure() -> BlueberryAutoConfigurator:
-    """One function call to auto-configure everything"""
-    return BlueberryAutoConfigurator()
+def t4_configure() -> BlueberryT4Configurator:
+    """One function call to configure T4-optimized training"""
+    return BlueberryT4Configurator()
 
 if __name__ == "__main__":
-    # Demo the auto-configuration
-    configurator = auto_configure()
+    # Demo the T4-configuration
+    configurator = t4_configure()
     configurator.print_config()

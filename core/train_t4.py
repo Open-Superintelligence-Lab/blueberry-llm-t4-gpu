@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Auto-configured training for Blueberry LLM
-Just run: python train_auto.py
+T4-optimized training for Blueberry LLM
+Just run: python train_t4.py
 """
 
 import os
@@ -17,7 +17,7 @@ if __name__ == "__main__":
 import torch
 import argparse
 from torch.utils.data import DataLoader, random_split
-from core.auto_config import auto_configure
+from core.t4_config import t4_configure
 from legacy.llm import train_moe_model, load_and_cache_data, TextTokenDataset
 
 def auto_launch_distributed():
@@ -27,7 +27,7 @@ def auto_launch_distributed():
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Auto-configured training for Blueberry LLM",
+        description="T4-optimized training for Blueberry LLM",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
@@ -36,7 +36,7 @@ def parse_arguments():
     return parser.parse_args()
 
 def main():
-    print("🫐 Starting Blueberry LLM Auto-Training")
+    print("🫐 Starting Blueberry LLM T4-Training")
     
     # Parse arguments
     args = parse_arguments()
@@ -44,8 +44,8 @@ def main():
     # Auto-launch with torchrun if needed
     auto_launch_distributed()
     
-    # Auto-configure everything
-    configurator = auto_configure()
+    # T4-configure everything
+    configurator = t4_configure()
     
     # Single T4 GPU - no Megatron support
     print("🚀 Single T4 GPU training - Megatron disabled")
@@ -149,7 +149,7 @@ def main():
     torch.save({
         'model_state_dict': model.state_dict(),
         'config': model_config,
-        'auto_config': configurator.config,
+        't4_config': configurator.config,
         'tokenizer': tokenizer,
         'final_metrics': final_metrics
     }, 'blueberry_model.pt')
