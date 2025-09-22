@@ -43,7 +43,7 @@ class SystemConfig:
             self.device_name = torch.cuda.get_device_name(0)
             
             # Feature detection based on compute capability (T4 optimized)
-            self.has_tensor_cores = self.capability >= (7, 0)  # Volta+ (T4 has tensor cores)
+            self.has_tensor_cores = self.capability >= (7, 0)  # T4 has tensor cores
             
             # Memory information
             self.total_memory = torch.cuda.get_device_properties(0).total_memory

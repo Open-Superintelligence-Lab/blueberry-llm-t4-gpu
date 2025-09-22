@@ -24,7 +24,7 @@ class T4Linear(nn.Module):
     GPU-adaptive linear layer that automatically uses the best matmul kernel.
     
     This layer replaces nn.Linear with an implementation that leverages
-    architecture-specific optimizations like FP8 on Blackwell GPUs.
+    T4-optimized linear operations with FP16 precision.
     """
     
     def __init__(
@@ -43,7 +43,7 @@ class T4Linear(nn.Module):
             out_features: Number of output features
             bias: Whether to include bias term
             use_fp8: Whether to use FP8 precision (only on supported hardware)
-            init_method: Weight initialization method ("auto", "blackwell", "standard")
+            init_method: Weight initialization method ("auto", "t4", "standard")
         """
         super().__init__()
         self.in_features = in_features
@@ -73,12 +73,12 @@ class T4Linear(nn.Module):
         """Initialize weights using optimal scaling for the current architecture."""
         if self.init_method == "auto":
             # Auto-select based on architecture
-            if SYSTEM_CONFIG.architecture == "blackwell":
-                self._blackwell_init()
+            if SYSTEM_CONFIG.architecture == "t4":
+                self._t4_init()
             else:
                 self._standard_init()
-        elif self.init_method == "blackwell":
-            self._blackwell_init()
+        elif self.init_method == "t4":
+            self._t4_init()
         elif self.init_method == "standard":
             self._standard_init()
         else:
@@ -88,8 +88,8 @@ class T4Linear(nn.Module):
         if self.bias is not None:
             nn.init.zeros_(self.bias)
     
-    def _blackwell_init(self):
-        """Blackwell-optimized weight initialization."""
+    def _t4_init(self):
+        """T4-optimized weight initialization."""
         # Improved initialization from the reference implementation
         std = 0.5 * (self.in_features ** -0.5)
         bound = (3 ** 0.5) * std
@@ -110,7 +110,7 @@ class T4Linear(nn.Module):
             Output tensor [batch_size, seq_len, out_features]
         """
         if self.use_fp8 and self.training:
-            # Use FP8 matmul for training on Blackwell
+            # Use FP16 matmul for training on T4
             output = matmul_fp8(
                 x, 
                 self.weight, 
@@ -222,8 +222,8 @@ class T4Embedding(nn.Module):
     def _init_weights(self):
         """Initialize embedding weights."""
         if self.init_method == "auto":
-            if SYSTEM_CONFIG.architecture == "blackwell":
-                # Blackwell-optimized initialization
+            if SYSTEM_CONFIG.architecture == "t4":
+                # T4-optimized initialization
                 nn.init.normal_(self.embedding.weight, mean=0.0, std=0.02)
             else:
                 # Standard initialization

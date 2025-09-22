@@ -208,8 +208,8 @@ class T4MoEMinimalLLM(nn.Module):
         
         # A100 GPU bfloat16 peak flops is 312 TFLOPS
         flops_promised = 312e12
-        if SYSTEM_CONFIG.architecture == "blackwell":
-            # RTX 5090 has higher peak FLOPS
+        if SYSTEM_CONFIG.architecture == "t4":
+            # T4 has balanced FLOPS and memory
             flops_promised = 400e12  # Estimated
         
         mfu = flops_achieved / flops_promised

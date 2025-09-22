@@ -65,8 +65,8 @@ class MultiHeadAttention(nn.Module):
         # Attention scaling - use architecture-specific values
         if attention_scale is not None:
             self.attention_scale = attention_scale
-        elif SYSTEM_CONFIG.architecture == "blackwell":
-            # Optimized scaling for Blackwell (from reference implementation)
+        elif SYSTEM_CONFIG.architecture == "t4":
+            # Optimized scaling for T4 (from reference implementation)
             self.attention_scale = 0.12
         else:
             # Standard scaling
