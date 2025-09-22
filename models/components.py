@@ -385,7 +385,6 @@ class MoETransformerBlock(nn.Module):
         num_experts: int = 8,
         top_k: int = 2,
         dropout: float = 0.1,
-        use_fp8: bool = False,
         norm_type: str = "rms"
     ):
         """
@@ -399,19 +398,18 @@ class MoETransformerBlock(nn.Module):
             num_experts: Number of experts in MoE layer
             top_k: Number of experts to route to per token
             dropout: Dropout probability
-            use_fp8: Whether to use FP8 precision
             norm_type: Type of normalization ("rms", "layer")
         """
         super().__init__()
 
-        # Attention layer with adaptive operations
+        # Attention layer optimized for T4
         self.attention = MultiHeadAttention(
-            d_model, n_heads, max_seq_len, dropout, use_fp8=use_fp8
+            d_model, n_heads, max_seq_len, dropout
         )
 
-        # MoE layer with adaptive operations
+        # MoE layer optimized for T4
         self.feed_forward = MixtureOfExperts(
-            d_model, d_ff, num_experts, top_k, dropout, use_fp8=use_fp8
+            d_model, d_ff, num_experts, top_k, dropout
         )
 
         # Normalization layers

@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import math
 from typing import Optional, Tuple
-from .layers import AdaptiveEmbedding, AdaptiveLinear, AdaptiveLayerNorm, create_adaptive_linear
+# Removed adaptive layer imports - using standard PyTorch components for T4
 from .components import MoETransformerBlock, StandardTransformerBlock
 from configs import AdaptiveMoEModelConfig
 from system import SYSTEM_CONFIG
@@ -17,10 +17,10 @@ from system import SYSTEM_CONFIG
 
 class AdaptiveMoEMinimalLLM(nn.Module):
     """
-    GPU-adaptive MoE LLM with automatic optimization.
+    T4-optimized MoE LLM with FP16 precision.
     
-    This model automatically adapts to the available GPU hardware,
-    using optimizations like FP8 precision on Blackwell GPUs.
+    This model is specifically optimized for Tesla T4 GPU training
+    with FP16 precision and tensor core acceleration.
     """
     
     def __init__(self, config: AdaptiveMoEModelConfig):
@@ -33,17 +33,16 @@ class AdaptiveMoEMinimalLLM(nn.Module):
         super().__init__()
         self.config = config
 
-        # Token embeddings with adaptive initialization
-        self.token_embedding = AdaptiveEmbedding(
+        # Token embeddings optimized for T4
+        self.token_embedding = nn.Embedding(
             config.vocab_size, 
-            config.d_model,
-            init_method="auto"
+            config.d_model
         )
         
         # Position dropout
         self.position_dropout = nn.Dropout(config.dropout)
 
-        # Transformer blocks with adaptive operations
+        # Transformer blocks optimized for T4
         self.transformer_blocks = nn.ModuleList([
             MoETransformerBlock(
                 d_model=config.d_model,
@@ -53,27 +52,25 @@ class AdaptiveMoEMinimalLLM(nn.Module):
                 num_experts=config.num_experts,
                 top_k=config.expert_top_k,
                 dropout=config.dropout,
-                use_fp8=config.use_fp8
+                use_fp8=False  # T4 doesn't support FP8
             )
             for i in range(config.n_layers)
         ])
 
-        # Output layers
-        self.norm = AdaptiveLayerNorm(config.d_model, norm_type="rms")
+        # Output layers optimized for T4
+        self.norm = nn.LayerNorm(config.d_model)
         self.output_dropout = nn.Dropout(config.dropout)
 
-        # Language modeling head with adaptive operations
+        # Language modeling head optimized for T4
         # Tied with embeddings for parameter efficiency
-        self.lm_head = create_adaptive_linear(
+        self.lm_head = nn.Linear(
             config.d_model, 
             config.vocab_size, 
-            bias=False, 
-            zero_init=True,  # Zero init from reference implementation
-            use_fp8=config.use_fp8
+            bias=False
         )
         
         # Tie weights between embedding and output
-        self.lm_head.weight = self.token_embedding.embedding.weight
+        self.lm_head.weight = self.token_embedding.weight
 
         # Apply initialization
         self.apply(self._init_weights)
@@ -83,23 +80,25 @@ class AdaptiveMoEMinimalLLM(nn.Module):
 
     def _init_weights(self, module):
         """
-        Initialize model weights with architecture-specific optimizations.
+        Initialize model weights optimized for T4 GPU.
         
         Args:
             module: Module to initialize
         """
-        if isinstance(module, AdaptiveLinear):
-            # Weight initialization is handled in AdaptiveLinear
-            pass
-        elif isinstance(module, (AdaptiveEmbedding, nn.Embedding)):
-            # Embedding initialization is handled in AdaptiveEmbedding
-            pass
-        elif isinstance(module, (nn.LayerNorm, nn.RMSNorm)):
+        if isinstance(module, nn.Embedding):
+            # Standard embedding initialization
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
             # Standard normalization initialization
             if hasattr(module, 'bias') and module.bias is not None:
                 nn.init.zeros_(module.bias)
             if hasattr(module, 'weight') and module.weight is not None:
                 nn.init.ones_(module.weight)
+        elif isinstance(module, nn.Linear):
+            # Standard linear layer initialization
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
 
     def _print_model_info(self):
         """Print model information and optimizations."""
