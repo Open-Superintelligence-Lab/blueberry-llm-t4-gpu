@@ -66,11 +66,11 @@ class BlueberryAutoConfigurator:
         device_name = torch.cuda.get_device_name(0).lower()
         if "tesla t4" in device_name or "t4" in device_name:
             print("🚀 Tesla T4 detected - using optimized configuration")
-            return self._t4_optimized_config(1, gpu_memory_gb)  # Force single GPU
         else:
             print(f"⚠️ Non-T4 GPU detected: {device_name}")
             print("   This version is optimized for T4 GPUs, but will attempt to run")
-            return self._t4_optimized_config(1, gpu_memory_gb)  # Use T4 config anyway
+        
+        return self._t4_optimized_config(1, gpu_memory_gb)  # Always use T4 config
     
     def _t4_optimized_config(self, num_gpus: int, gpu_memory_gb: float) -> AutoConfig:
         """Optimized config for single Tesla T4 GPU - balanced for memory efficiency"""
@@ -117,9 +117,7 @@ class BlueberryAutoConfigurator:
         print(f"📝 Sequence: {self.config.max_seq_len}")
         print(f"⚡ Mixed Precision: {'Yes' if self.config.use_amp else 'No'}")
         
-        if self.config.use_distributed:
-            print(f"🌐 Data Parallel: Yes (across {self.config.num_gpus} GPUs)")
-            print(f"   Run with: torchrun --nproc_per_node={self.config.num_gpus} train_auto.py")
+        print(f"🌐 Single T4 GPU Training")
         
         print("=" * 50)
     

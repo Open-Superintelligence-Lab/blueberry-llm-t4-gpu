@@ -43,9 +43,7 @@ class SystemConfig:
             self.device_name = torch.cuda.get_device_name(0)
             
             # Feature detection based on compute capability (T4 optimized)
-            self.has_fp8_support = False  # T4 doesn't support FP8
             self.has_tensor_cores = self.capability >= (7, 0)  # Volta+ (T4 has tensor cores)
-            self.has_bf16_support = False  # T4 doesn't support BF16
             
             # Memory information
             self.total_memory = torch.cuda.get_device_properties(0).total_memory
@@ -58,9 +56,7 @@ class SystemConfig:
             # No CUDA available
             self.capability = (0, 0)
             self.device_name = "CPU"
-            self.has_fp8_support = False
             self.has_tensor_cores = False
-            self.has_bf16_support = False
             self.total_memory = 0
             self.memory_gb = 0
             self.architecture = "cpu"
@@ -73,27 +69,12 @@ class SystemConfig:
         if major == 7 and minor == 5:
             return "t4"
         else:
-            # For non-T4 GPUs, still classify but warn
-            if major >= 9:
-                return "blackwell"
-            elif major == 8:
-                if minor >= 9:  # H100
-                    return "hopper"
-                else:  # A100, RTX 30xx
-                    return "ampere"
-            elif major == 7:
-                if minor >= 5:  # RTX 20xx
-                    return "turing"
-                else:  # V100
-                    return "volta"
-            elif major == 6:
-                return "pascal"
-            else:
-                return "unknown"
+            # For non-T4 GPUs, return generic classification
+            return "other"
     
     def get_optimal_dtype(self) -> torch.dtype:
         """Get the optimal data type for T4 GPU architecture."""
-        return torch.float16  # T4 is optimized for FP16
+        return torch.float16  # T4 is optimized for FP16 with tensor cores
     
     def supports_feature(self, feature: str) -> bool:
         """Check if the current GPU supports a specific feature."""

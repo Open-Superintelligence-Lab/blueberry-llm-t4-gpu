@@ -56,7 +56,7 @@ class AdaptiveMoEModelConfig:
     load_balancing_weight: float = 0.01
 
     # GPU-adaptive parameters (optimized for T4)
-    use_adaptive_matmul: bool = True  # Use adaptive matmul operations
+    use_fp16_matmul: bool = True  # Use FP16 matmul operations for T4
     
     # Single GPU training parameters (T4 optimized)
 
@@ -80,7 +80,7 @@ class AdaptiveMoEModelConfig:
     def supports_feature(self, feature: str) -> bool:
         """Check if the current configuration supports a specific feature."""
         feature_map = {
-            "adaptive_matmul": self.use_adaptive_matmul,
+            "fp16_matmul": self.use_fp16_matmul,
             "tensor_cores": SYSTEM_CONFIG.has_tensor_cores,
         }
         return feature_map.get(feature, False)
@@ -93,7 +93,7 @@ class AdaptiveMoEModelConfig:
             "moe": f"{self.num_experts}experts-top{self.expert_top_k}",
             "training": f"{self.max_steps}steps-bs{self.batch_size}",
             "gpu_features": {
-                "adaptive_matmul": self.supports_feature("adaptive_matmul"),
+                "fp16_matmul": self.supports_feature("fp16_matmul"),
                 "tensor_cores": self.supports_feature("tensor_cores"),
             },
             "optimal_dtype": str(self.get_optimal_dtype()),
@@ -127,7 +127,7 @@ def get_t4_optimized_config() -> AdaptiveMoEModelConfig:
         num_experts=8,  # Good expert count for T4
         expert_top_k=2,
         gradient_accumulation_steps=3,  # Balanced for T4
-        use_adaptive_matmul=True,
+        use_fp16_matmul=True,
         muon_lr=0.01,
         eval_every=250,
         eval_steps=50,

@@ -122,13 +122,8 @@ class AdaptiveMoEMinimalLLM(nn.Module):
         print(f"   Parameter efficiency: {active_params/total_params:.1%} active per forward pass")
         
         # GPU optimizations
-        if self.config.use_fp8 and SYSTEM_CONFIG.has_fp8_support:
-            print(f"   🚀 FP8 acceleration enabled")
-        elif SYSTEM_CONFIG.has_bf16_support:
-            print(f"   🚀 BF16 acceleration enabled")
-        
-        if self.config.use_adaptive_matmul:
-            print(f"   ⚡ Adaptive matmul operations enabled")
+        if self.config.use_fp16_matmul:
+            print(f"   ⚡ FP16 matmul operations enabled for T4")
 
     def forward(
         self, 
