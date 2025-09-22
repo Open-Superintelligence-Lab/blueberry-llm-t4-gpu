@@ -55,31 +55,29 @@ class AdaptiveMoEModelConfig:
     expert_top_k: int = 2
     load_balancing_weight: float = 0.01
 
-    # GPU-adaptive parameters
-    use_fp8: bool = True  # Enable FP8 on supported hardware
+    # GPU-adaptive parameters (optimized for T4)
+    use_fp8: bool = False  # T4 doesn't support FP8
     use_adaptive_matmul: bool = True  # Use adaptive matmul operations
     
-    # Megatron-LM distributed training parameters
-    use_megatron: bool = False  # Enable Megatron-LM for multi-GPU training (auto-detected)
-    tensor_parallel_size: int = 1  # Tensor parallelism size (auto-detected)
-    pipeline_parallel_size: int = 1  # Pipeline parallelism size (auto-detected)
+    # Single GPU training parameters
+    use_megatron: bool = False  # Disabled for single T4 GPU
+    tensor_parallel_size: int = 1  # Single GPU
+    pipeline_parallel_size: int = 1  # Single GPU
 
     def __post_init__(self):
         """Post-initialization to validate and adapt configuration based on hardware."""
         self.d_k = self.d_model // self.n_heads
         assert self.d_model % self.n_heads == 0, "d_model must be divisible by n_heads"
         
-        # Auto-detect optimal settings based on GPU
-        if SYSTEM_CONFIG.has_fp8_support and self.use_fp8:
-            print("🚀 FP8 acceleration enabled for Blackwell architecture")
-            # Optimize batch size for FP8 memory savings
-            if self.batch_size < 32 and SYSTEM_CONFIG.memory_gb > 20:
-                self.batch_size = min(32, self.batch_size * 2)
-                print(f"   📈 Increased batch size to {self.batch_size} for FP8 efficiency")
+        # Auto-detect optimal settings based on T4 GPU
+        if SYSTEM_CONFIG.architecture == "t4":
+            print("🚀 T4 GPU detected - using FP16 optimization")
+            # T4 is optimized for FP16, disable FP8
+            self.use_fp8 = False
         elif SYSTEM_CONFIG.has_bf16_support:
             print("🚀 BF16 acceleration enabled")
         else:
-            print("📋 Using standard precision")
+            print("📋 Using FP16 precision (T4 optimized)")
             # Disable FP8 if not supported
             self.use_fp8 = False
         
@@ -138,41 +136,24 @@ class AdaptiveMoEModelConfig:
         print(f"   Optimal Dtype: {info['optimal_dtype']}")
 
 
-def get_rtx4090_config() -> AdaptiveMoEModelConfig:
-    """Get an optimized configuration for RTX 4090."""
+def get_t4_optimized_config() -> AdaptiveMoEModelConfig:
+    """Get an optimized configuration for T4 GPU."""
     return AdaptiveMoEModelConfig(
-        d_model=768,  # Increased from 384
-        n_heads=12,   # Increased from 8
-        n_layers=12,  # Increased from 6
-        d_ff=3072,    # Increased from 1536
-        batch_size=24,  # Increased from 16
-        max_steps=2000,  # Increased from 1000
-        max_seq_len=2048,  # Increased from 1024
-        num_experts=16,  # Increased from 8
+        d_model=384,  # Balanced for T4 memory
+        n_heads=8,    # Optimal for T4
+        n_layers=6,  # Balanced for T4
+        d_ff=1536,   # Balanced for T4
+        batch_size=12,  # Optimized for T4 memory
+        max_steps=2000,  # Good training length
+        max_seq_len=1024,  # Good sequence length for T4
+        num_experts=8,  # Good expert count for T4
         expert_top_k=2,
-        gradient_accumulation_steps=2,  # Reduced for larger batch
-        use_fp8=False,  # RTX 4090 doesn't support FP8
+        gradient_accumulation_steps=3,  # Balanced for T4
+        use_fp8=False,  # T4 doesn't support FP8
         use_adaptive_matmul=True,
         muon_lr=0.01,
         eval_every=250,
         eval_steps=50,
-    )
-
-
-def get_rtx5090_config() -> AdaptiveMoEModelConfig:
-    """Get an optimized configuration for RTX 5090."""
-    return AdaptiveMoEModelConfig(
-        d_model=512,
-        n_heads=8,
-        n_layers=8,
-        d_ff=2048,
-        batch_size=32,  # Take advantage of 32GB VRAM
-        max_steps=2000,
-        max_seq_len=1024,  # Longer sequences
-        num_experts=16,  # More experts for better capacity
-        expert_top_k=2,
-        use_fp8=True,  # Enable FP8 for Blackwell
-        use_adaptive_matmul=True,
     )
 
 

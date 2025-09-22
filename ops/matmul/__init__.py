@@ -10,8 +10,8 @@ import torch
 from typing import Tuple, Callable, List, Optional
 from system import SYSTEM_CONFIG
 
-# Import all kernel implementations
-from . import _blackwell_impl, _hopper_impl, _fallback_impl
+# Import kernel implementations (T4 optimized and fallback only)
+from . import _fallback_impl
 
 
 class MatmulRegistry:
@@ -29,47 +29,28 @@ class MatmulRegistry:
         self._setup_registry()
     
     def _setup_registry(self):
-        """Setup the kernel registry with architecture-specific implementations."""
+        """Setup the kernel registry optimized for T4 GPU."""
         
-        # Blackwell FP8 kernels (highest priority)
+        # T4 optimized kernels (highest priority)
         self.kernels.extend([
-            # FP8 matmul for Blackwell
+            # FP16 matmul for T4 (optimal for T4's tensor cores)
             (
-                lambda: SYSTEM_CONFIG.architecture == "blackwell" and SYSTEM_CONFIG.has_fp8_support,
-                _blackwell_impl.matmul_fp8
+                lambda: SYSTEM_CONFIG.architecture == "t4" and SYSTEM_CONFIG.has_tensor_cores,
+                _fallback_impl.matmul_fp16
             ),
-            # BF16 tensor cores for Blackwell
+            # BF16 matmul for T4 (if supported)
             (
-                lambda: SYSTEM_CONFIG.architecture == "blackwell" and SYSTEM_CONFIG.has_tensor_cores,
-                _blackwell_impl.matmul_bf16_tensor_cores
+                lambda: SYSTEM_CONFIG.architecture == "t4" and SYSTEM_CONFIG.has_bf16_support,
+                _fallback_impl.matmul_fp16  # Use FP16 as T4 doesn't have native BF16
             ),
         ])
         
-        # Hopper kernels
+        # Generic tensor core support for non-T4 GPUs
         self.kernels.extend([
-            # BF16 tensor cores for Hopper
+            # FP16 for any GPU with tensor cores
             (
-                lambda: SYSTEM_CONFIG.architecture == "hopper" and SYSTEM_CONFIG.has_bf16_support,
-                _hopper_impl.matmul_bf16_tensor_cores
-            ),
-            # FP16 tensor cores for Hopper
-            (
-                lambda: SYSTEM_CONFIG.architecture == "hopper" and SYSTEM_CONFIG.has_tensor_cores,
-                _hopper_impl.matmul_fp16_tensor_cores
-            ),
-        ])
-        
-        # Ampere and other architectures with tensor cores
-        self.kernels.extend([
-            # BF16 for Ampere
-            (
-                lambda: SYSTEM_CONFIG.architecture == "ampere" and SYSTEM_CONFIG.has_bf16_support,
-                _hopper_impl.matmul_bf16_tensor_cores  # Reuse Hopper implementation
-            ),
-            # FP16 for older tensor core GPUs
-            (
-                lambda: SYSTEM_CONFIG.has_tensor_cores and not SYSTEM_CONFIG.has_bf16_support,
-                _hopper_impl.matmul_fp16_tensor_cores
+                lambda: SYSTEM_CONFIG.has_tensor_cores and SYSTEM_CONFIG.architecture != "t4",
+                _fallback_impl.matmul_fp16
             ),
         ])
         
@@ -191,18 +172,15 @@ def print_kernel_info():
 
 
 # Convenience functions for specific use cases
-def matmul_fp8(x: torch.Tensor, w: torch.Tensor, x_s: float = 1.0, w_s: float = 1.0, grad_s: float = 1.0) -> torch.Tensor:
-    """FP8 matmul if available, otherwise fallback."""
-    if SYSTEM_CONFIG.has_fp8_support:
-        return _blackwell_impl.matmul_fp8(x, w, x_s, w_s, grad_s)
-    else:
-        return matmul(x, w)
+def matmul_fp16(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
+    """FP16 matmul optimized for T4 GPU."""
+    return _fallback_impl.matmul_fp16(x, w)
 
 
 def matmul_bf16(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
-    """BF16 matmul if available, otherwise fallback."""
+    """BF16 matmul - falls back to FP16 for T4 GPU."""
     if SYSTEM_CONFIG.has_bf16_support:
-        return _hopper_impl.matmul_bf16_tensor_cores(x, w)
+        return _fallback_impl.matmul_fp16(x, w)  # Use FP16 as T4 doesn't have native BF16
     else:
         return matmul(x, w)
 

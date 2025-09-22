@@ -1,14 +1,12 @@
-# 🚀 GPU-Adaptive Operations System
+# 🚀 T4-Optimized Operations System
 
-A hybrid dispatcher system that automatically selects the most optimized operations for your GPU architecture, ensuring maximum performance across different hardware configurations.
+A streamlined dispatcher system optimized specifically for Tesla T4 GPU architecture, ensuring maximum performance on T4 hardware.
 
 ## 🎯 Overview
 
-This system implements a **component-based structure with runtime dispatch** that automatically adapts to different GPU architectures:
+This system implements a **T4-optimized structure** that automatically adapts to Tesla T4 GPU:
 
-- **Blackwell (Compute Capability ≥ 9.0)**: Native FP8 support with `torch._scaled_mm`
-- **Hopper (H100)**: Optimized BF16/FP16 tensor core operations  
-- **Ampere (A100, RTX 30xx)**: BF16 tensor core acceleration
+- **Tesla T4 (Compute Capability 7.5)**: Optimized FP16 tensor core operations
 - **Fallback**: Robust CPU/GPU implementations that work everywhere
 
 ## 🏗️ Architecture
@@ -16,13 +14,11 @@ This system implements a **component-based structure with runtime dispatch** tha
 ```
 /blueberry-llm
 |-- /system
-|   |-- __init__.py          # GPU detection and system config
+|   |-- __init__.py          # T4 GPU detection and system config
 |-- /ops
 |   |-- /matmul
-|   |   |-- __init__.py      # Dispatcher and public API
-|   |   |-- _blackwell_impl.py  # Blackwell FP8 kernels
-|   |   |-- _hopper_impl.py     # Hopper tensor core kernels  
-|   |   |-- _fallback_impl.py   # Generic fallback kernels
+|   |   |-- __init__.py      # T4-optimized dispatcher and public API
+|   |   |-- _fallback_impl.py   # T4-optimized and generic fallback kernels
 |   |   |-- _common.py          # Shared utilities
 |-- test_gpu_adaptive.py      # Integration tests
 |-- example_integration.py    # Usage examples

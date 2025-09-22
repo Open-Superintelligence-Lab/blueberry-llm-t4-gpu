@@ -31,10 +31,10 @@ def train_with_megatron(
     resume_from_checkpoint: Optional[str] = None
 ) -> Tuple[nn.Module, Dict[str, Any]]:
     """
-    Training function optimized for Megatron-LM distributed training.
+    Training function for single T4 GPU (Megatron disabled for single GPU).
     
     Args:
-        model: Megatron-wrapped model
+        model: Model to train
         train_loader: Training data loader
         val_loader: Validation data loader
         config: Model configuration
@@ -44,29 +44,10 @@ def train_with_megatron(
     Returns:
         Tuple of (trained_model, final_metrics)
     """
-    print("🚀 Starting Megatron-LM distributed training...")
+    print("🚀 Single T4 GPU training - using native implementation")
+    print("   Megatron-LM is designed for multi-GPU, falling back to native training")
     
-    # Initialize distributed training if not already done
-    if not torch.distributed.is_initialized():
-        try:
-            # Try to initialize with environment variables (for torchrun)
-            torch.distributed.init_process_group(backend='nccl')
-            print("✅ Distributed training initialized")
-            
-            # Move model to appropriate GPU rank
-            local_rank = int(os.environ.get('LOCAL_RANK', 0))
-            device = torch.device(f'cuda:{local_rank}')
-            model = model.to(device)
-            print(f"✅ Model moved to GPU {local_rank}")
-            
-        except Exception as e:
-            print(f"⚠️ Distributed initialization failed: {e}")
-            print("   Falling back to native training")
-            return train_model_native(model, train_loader, val_loader, config, device, resume_from_checkpoint)
-    
-    # Use the existing training logic but with Megatron optimizations
-    # For minimal implementation, we'll use the same training loop
-    # Future enhancement: integrate Megatron's training utilities
+    # Use native training for single GPU
     return train_model_native(model, train_loader, val_loader, config, device, resume_from_checkpoint)
 
 

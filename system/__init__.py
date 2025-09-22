@@ -66,29 +66,36 @@ class SystemConfig:
             self.architecture = "cpu"
     
     def _classify_architecture(self) -> str:
-        """Classify GPU architecture based on compute capability."""
+        """Classify GPU architecture - optimized for T4 GPU."""
         major, minor = self.capability
         
-        if major >= 9:
-            return "blackwell"
-        elif major == 8:
-            if minor >= 9:  # H100
-                return "hopper"
-            else:  # A100, RTX 30xx
-                return "ampere"
-        elif major == 7:
-            if minor >= 5:  # RTX 20xx
-                return "turing"
-            else:  # V100
-                return "volta"
-        elif major == 6:
-            return "pascal"
+        # T4 has compute capability 7.5
+        if major == 7 and minor == 5:
+            return "t4"
         else:
-            return "unknown"
+            # For non-T4 GPUs, still classify but warn
+            if major >= 9:
+                return "blackwell"
+            elif major == 8:
+                if minor >= 9:  # H100
+                    return "hopper"
+                else:  # A100, RTX 30xx
+                    return "ampere"
+            elif major == 7:
+                if minor >= 5:  # RTX 20xx
+                    return "turing"
+                else:  # V100
+                    return "volta"
+            elif major == 6:
+                return "pascal"
+            else:
+                return "unknown"
     
     def get_optimal_dtype(self) -> torch.dtype:
         """Get the optimal data type for this GPU architecture."""
-        if self.has_fp8_support:
+        if self.architecture == "t4":
+            return torch.float16  # T4 is optimized for FP16
+        elif self.has_fp8_support:
             return torch.float8_e4m3fn
         elif self.has_bf16_support:
             return torch.bfloat16

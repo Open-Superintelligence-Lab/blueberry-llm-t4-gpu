@@ -21,35 +21,7 @@ from core.auto_config import auto_configure
 from legacy.llm import train_moe_model, load_and_cache_data, TextTokenDataset
 
 def auto_launch_distributed():
-    """Auto-launch with torchrun if multi-GPU detected and not already in distributed mode"""
-    import sys
-    import subprocess
-    
-    # Check if we're already in distributed mode
-    if 'RANK' in os.environ:
-        return False  # Already launched with torchrun
-    
-    # Quick GPU check
-    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
-        num_gpus = torch.cuda.device_count()
-        print(f"🚀 Auto-launching with {num_gpus} GPUs...")
-        
-        # Re-launch with torchrun
-        cmd = [
-            'torchrun', 
-            f'--nproc_per_node={num_gpus}',
-            '--standalone',
-            sys.argv[0]  # This script
-        ] + sys.argv[1:]  # Plus any additional args
-        
-        try:
-            result = subprocess.run(cmd, check=True)
-            sys.exit(result.returncode)
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Auto-launch failed: {e}")
-            print(f"💡 Try manually: torchrun --nproc_per_node={num_gpus} train_auto.py")
-            sys.exit(1)
-    
+    """Single T4 GPU - no distributed training needed"""
     return False
 
 def parse_arguments():
@@ -94,18 +66,8 @@ def main():
     print_system_info()
     print("=" * 50)
     
-    # Setup distributed training if needed
-    if configurator.config.use_distributed:
-        import torch.distributed as dist
-        try:
-            dist.init_process_group(backend='nccl')
-            local_rank = int(os.environ.get('LOCAL_RANK', 0))
-            torch.cuda.set_device(local_rank)
-            print(f"🌐 Initialized data parallel training: rank {dist.get_rank()}/{dist.get_world_size()}")
-            print(f"   Each GPU gets different data batches, same model")
-        except Exception as e:
-            print(f"❌ Distributed training failed: {e}")
-            raise RuntimeError(f"Multi-GPU setup detected but distributed training failed: {e}")
+    # Single T4 GPU - no distributed training needed
+    print("🚀 Single T4 GPU training mode")
     
     # Get model configuration
     model_config = configurator.get_model_config()
@@ -141,19 +103,11 @@ def main():
         generator=torch.Generator().manual_seed(42)
     )
     
-    # Create data loaders with distributed sampler if needed
-    train_sampler = None
-    if configurator.config.use_distributed:
-        import torch.distributed as dist
-        from torch.utils.data.distributed import DistributedSampler
-        if dist.is_initialized():
-            train_sampler = DistributedSampler(train_dataset)
-    
+    # Create data loaders for single T4 GPU
     train_loader = DataLoader(
         train_dataset, 
         batch_size=model_config.batch_size, 
-        shuffle=(train_sampler is None), 
-        sampler=train_sampler,
+        shuffle=True, 
         num_workers=2
     )
     val_loader = DataLoader(
