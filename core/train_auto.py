@@ -65,22 +65,9 @@ def main():
     # Get model configuration
     model_config = configurator.get_model_config()
     
-    # Auto-size dataset based on hardware (use already-detected config)
-    if configurator.config.num_gpus == 0:
-        model_config.num_documents = 500
-        model_config.max_tokens = 50000
-    elif configurator.config.gpu_memory_gb >= 14:  # T4 and similar high-memory GPUs
-        model_config.num_documents = 2000
-        model_config.max_tokens = 200000
-    elif configurator.config.gpu_memory_gb < 16:
-        model_config.num_documents = 1000
-        model_config.max_tokens = 100000
-    elif configurator.config.num_gpus <= 2:
-        model_config.num_documents = 2000
-        model_config.max_tokens = 250000
-    else:
-        model_config.num_documents = 5000
-        model_config.max_tokens = 500000
+    # Auto-size dataset for T4 GPU
+    model_config.num_documents = 2000
+    model_config.max_tokens = 200000
     
     print(f"\n📊 Loading {model_config.num_documents} documents, {model_config.max_tokens:,} tokens...")
     
@@ -135,13 +122,10 @@ def main():
             max_seq_len=model_config.max_seq_len,
             num_experts=model_config.num_experts,
             use_amp=model_config.use_amp,
-            vocab_size=model_config.vocab_size,  # Add vocab_size from tokenizer
-            use_megatron=True,
-            tensor_parallel_size=min(configurator.config.num_gpus, 8),
-            pipeline_parallel_size=1
+            vocab_size=model_config.vocab_size  # Add vocab_size from tokenizer
         )
         
-        # Create model with Megatron support
+        # Create model optimized for T4
         model = create_model(adaptive_config, "moe")
         
         # Move to device

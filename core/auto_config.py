@@ -18,26 +18,22 @@ if __name__ == "__main__":
 
 @dataclass
 class AutoConfig:
-    """Auto-detected configuration"""
-    # Hardware
-    num_gpus: int
-    gpu_memory_gb: float
-    
-    # Model (auto-scaled)
+    """T4-optimized configuration"""
+    # Model (T4-optimized)
     d_model: int
     n_layers: int
     n_heads: int
     d_ff: int
     num_experts: int
     
-    # Training (auto-optimized)
+    # Training (T4-optimized)
     batch_size: int
     gradient_accumulation_steps: int
     max_steps: int
     learning_rate: float
     max_seq_len: int
     
-    # Performance
+    # Performance (T4-optimized)
     use_amp: bool
 
 class BlueberryAutoConfigurator:
@@ -60,8 +56,6 @@ class BlueberryAutoConfigurator:
             print(f"⚠️ Multiple GPUs detected ({num_gpus}), but this version is optimized for single T4 GPU only")
             print("   Using only the first GPU")
         
-        gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-        
         # Check for T4 GPU
         device_name = torch.cuda.get_device_name(0).lower()
         if "tesla t4" in device_name or "t4" in device_name:
@@ -70,30 +64,27 @@ class BlueberryAutoConfigurator:
             print(f"⚠️ Non-T4 GPU detected: {device_name}")
             print("   This version is optimized for T4 GPUs, but will attempt to run")
         
-        return self._t4_optimized_config(1, gpu_memory_gb)  # Always use T4 config
+        return self._t4_optimized_config()  # Always use T4 config
     
-    def _t4_optimized_config(self, num_gpus: int, gpu_memory_gb: float) -> AutoConfig:
+    def _t4_optimized_config(self) -> AutoConfig:
         """Optimized config for single Tesla T4 GPU - balanced for memory efficiency"""
         return AutoConfig(
-            num_gpus=1,  # Force single GPU
-            gpu_memory_gb=gpu_memory_gb,
-            d_model=384,  # Moderate increase from 256 (was 512)
-            n_layers=6,   # Moderate increase from 4 (was 8)
-            n_heads=8,    # Increased from 4
-            d_ff=1536,    # Moderate increase from 1024 (was 2048)
-            num_experts=8,  # Increased from 4
-            batch_size=12,  # Moderate increase from 8 (was 16)
-            gradient_accumulation_steps=3,  # Balanced
-            max_steps=2000,  # Increased from 1000
+            d_model=384,  # Balanced for T4 memory
+            n_layers=6,   # Balanced for T4
+            n_heads=8,    # Optimal for T4
+            d_ff=1536,    # Balanced for T4
+            num_experts=8,  # Good for T4
+            batch_size=12,  # Optimized for T4 memory
+            gradient_accumulation_steps=3,  # Balanced for T4
+            max_steps=2000,  # Good training length
             learning_rate=0.01,
-            max_seq_len=1024,  # Moderate increase from 512 (was 1024)
-            use_amp=True
+            max_seq_len=1024,  # Good for T4
+            use_amp=True  # FP16 for T4 tensor cores
         )
     
     def _cpu_config(self) -> AutoConfig:
         """Minimal config for CPU-only systems"""
         return AutoConfig(
-            num_gpus=0, gpu_memory_gb=0,
             d_model=128, n_layers=2, n_heads=4, d_ff=512, num_experts=2,
             batch_size=4, gradient_accumulation_steps=8, max_steps=1000,
             learning_rate=0.001, max_seq_len=256,
@@ -105,11 +96,7 @@ class BlueberryAutoConfigurator:
         print("🫐 Blueberry LLM Auto-Configuration")
         print("=" * 50)
         
-        if self.config.num_gpus == 0:
-            print("🖥️  Mode: CPU Training (Limited)")
-        else:
-            print(f"🚀 Mode: GPU Training ({self.config.num_gpus} GPUs)")
-            print(f"   Memory: {self.config.gpu_memory_gb:.1f} GB per GPU")
+        print("🚀 Mode: T4 GPU Training")
         
         print(f"📏 Model: {self.config.d_model}d × {self.config.n_layers}L × {self.config.n_heads}H")
         print(f"🧠 Experts: {self.config.num_experts}")
