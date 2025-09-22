@@ -22,7 +22,7 @@ Try it on [Google Colab](https://colab.research.google.com/drive/1UE82keuNStPPae
 # I think this doesn't work, line above
 
 # Single T4 GPU training (optimized)
-python core/train_t4.py
+python train.py
 ```
 
 Optimized for **single Tesla T4 GPU** training with native PyTorch implementation. Megatron-LM disabled as it's designed for multi-GPU distributed training.
@@ -47,8 +47,7 @@ This is an **open research project** - we encourage everyone to fork the project
 ```
 blueberry-llm/
 ├── 📁 core/                    # Main functionality
-│   ├── train.py               # Main training script
-│   ├── train_t4.py            # T4-optimized training
+│   ├── train.py               # T4-optimized training
 │   ├── inference.py           # Model inference
 │   └── t4_config.py           # T4-specific configuration logic
 ├── 📁 models/                 # Neural network components

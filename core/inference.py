@@ -144,7 +144,7 @@ def main():
         model, tokenizer, device, config = load_model(args.checkpoint)
     except FileNotFoundError:
         print(f"❌ Model file '{args.checkpoint}' not found!")
-        print("💡 Make sure you've trained a model first with: python3 train_t4.py")
+        print("💡 Make sure you've trained a model first with: python3 train.py")
         return
     except Exception as e:
         print(f"❌ Failed to load model: {e}")
