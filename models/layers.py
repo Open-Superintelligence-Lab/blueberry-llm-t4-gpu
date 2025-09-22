@@ -19,7 +19,7 @@ except ImportError:
     TORCHTUNE_AVAILABLE = False
 
 
-class AdaptiveLinear(nn.Module):
+class T4Linear(nn.Module):
     """
     GPU-adaptive linear layer that automatically uses the best matmul kernel.
     
@@ -182,9 +182,9 @@ class Rotary(nn.Module):
         return f'dim={self.dim}, max_seq_len={self.max_seq_len}, base={self.base}'
 
 
-class AdaptiveEmbedding(nn.Module):
+class T4Embedding(nn.Module):
     """
-    Adaptive embedding layer with optimal initialization.
+    T4-optimized embedding layer with optimal initialization.
     
     This embedding layer uses architecture-specific initialization
     and can be configured for different GPU architectures.
@@ -244,9 +244,9 @@ class AdaptiveEmbedding(nn.Module):
         return self.embedding(input_ids)
 
 
-class AdaptiveLayerNorm(nn.Module):
+class T4LayerNorm(nn.Module):
     """
-    Adaptive normalization layer that chooses between LayerNorm and RMSNorm.
+    T4-optimized normalization layer that chooses between LayerNorm and RMSNorm.
     
     RMSNorm is often preferred for modern architectures as it's simpler
     and more efficient.
@@ -299,7 +299,7 @@ def create_adaptive_linear(
     bias: bool = True,
     zero_init: bool = False,
     use_fp8: bool = False
-) -> AdaptiveLinear:
+) -> T4Linear:
     """
     Factory function to create adaptive linear layers with common configurations.
     
@@ -311,9 +311,9 @@ def create_adaptive_linear(
         use_fp8: Whether to use FP8 precision
         
     Returns:
-        Configured AdaptiveLinear layer
+        Configured T4Linear layer
     """
-    layer = AdaptiveLinear(
+    layer = T4Linear(
         in_features, 
         out_features, 
         bias=bias, 

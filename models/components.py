@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Optional
-from .layers import AdaptiveLinear, Rotary, AdaptiveLayerNorm, create_adaptive_linear
+from .layers import T4Linear, Rotary, T4LayerNorm, create_adaptive_linear
 from system import SYSTEM_CONFIG
 
 
@@ -51,7 +51,7 @@ class MultiHeadAttention(nn.Module):
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
 
         # QKV projection using adaptive linear layers
-        self.qkv = AdaptiveLinear(d_model, d_model * 3, bias=False, use_fp8=use_fp8)
+        self.qkv = T4Linear(d_model, d_model * 3, bias=False, use_fp8=use_fp8)
         
         # Output projection with zero initialization (from reference implementation)
         self.w_o = create_adaptive_linear(d_model, d_model, bias=False, zero_init=True, use_fp8=use_fp8)
@@ -142,7 +142,7 @@ class Expert(nn.Module):
         self.activation = activation
         
         # Two-layer MLP with adaptive operations
-        self.linear1 = AdaptiveLinear(d_model, d_ff, bias=False, use_fp8=use_fp8)
+        self.linear1 = T4Linear(d_model, d_ff, bias=False, use_fp8=use_fp8)
         self.linear2 = create_adaptive_linear(d_ff, d_model, bias=False, zero_init=True, use_fp8=use_fp8)
         self.dropout = nn.Dropout(dropout)
         
@@ -208,7 +208,7 @@ class TopKRouter(nn.Module):
         self.noise_std = noise_std
         
         # Gating network
-        self.gate = AdaptiveLinear(d_model, num_experts, bias=False, use_fp8=use_fp8)
+        self.gate = T4Linear(d_model, num_experts, bias=False, use_fp8=use_fp8)
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -413,8 +413,8 @@ class MoETransformerBlock(nn.Module):
         )
 
         # Normalization layers
-        self.norm1 = AdaptiveLayerNorm(d_model, norm_type=norm_type)
-        self.norm2 = AdaptiveLayerNorm(d_model, norm_type=norm_type)
+        self.norm1 = T4LayerNorm(d_model, norm_type=norm_type)
+        self.norm2 = T4LayerNorm(d_model, norm_type=norm_type)
         
         # Dropout
         self.dropout = nn.Dropout(dropout)
@@ -487,8 +487,8 @@ class StandardTransformerBlock(nn.Module):
         )
 
         # Normalization layers
-        self.norm1 = AdaptiveLayerNorm(d_model, norm_type=norm_type)
-        self.norm2 = AdaptiveLayerNorm(d_model, norm_type=norm_type)
+        self.norm1 = T4LayerNorm(d_model, norm_type=norm_type)
+        self.norm2 = T4LayerNorm(d_model, norm_type=norm_type)
         
         # Dropout
         self.dropout = nn.Dropout(dropout)

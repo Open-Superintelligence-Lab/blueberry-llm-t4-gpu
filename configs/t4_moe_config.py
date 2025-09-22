@@ -1,5 +1,5 @@
 """
-Configuration for Adaptive Mixture of Experts model.
+Configuration for T4-optimized Mixture of Experts model.
 
 This module contains the configuration dataclass for the GPU-adaptive
 MoE model with automatic optimization based on hardware capabilities.
@@ -134,7 +134,7 @@ def get_t4_optimized_config() -> T4MoEModelConfig:
     )
 
 
-def get_development_config() -> AdaptiveMoEModelConfig:
+def get_development_config() -> T4MoEModelConfig:
     """Get a fast configuration for development and testing."""
     return T4MoEModelConfig(
         d_model=256,  # 256 is divisible by 16

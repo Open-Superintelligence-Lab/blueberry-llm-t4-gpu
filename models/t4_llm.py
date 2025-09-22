@@ -1,8 +1,8 @@
 """
-Main adaptive LLM model architectures.
+T4-optimized LLM model architectures.
 
-This module contains complete model implementations that compose
-the basic layers and components into full LLM architectures.
+This module contains complete model implementations optimized for
+single Tesla T4 GPU training with FP16 precision.
 """
 
 import torch
@@ -11,11 +11,11 @@ import math
 from typing import Optional, Tuple
 # Removed adaptive layer imports - using standard PyTorch components for T4
 from .components import MoETransformerBlock, StandardTransformerBlock
-from configs import AdaptiveMoEModelConfig
+from configs import T4MoEModelConfig
 from system import SYSTEM_CONFIG
 
 
-class AdaptiveMoEMinimalLLM(nn.Module):
+class T4MoEMinimalLLM(nn.Module):
     """
     T4-optimized MoE LLM with FP16 precision.
     
@@ -23,7 +23,7 @@ class AdaptiveMoEMinimalLLM(nn.Module):
     with FP16 precision and tensor core acceleration.
     """
     
-    def __init__(self, config: AdaptiveMoEModelConfig):
+    def __init__(self, config: T4MoEModelConfig):
         """
         Initialize the adaptive MoE LLM.
         
@@ -276,14 +276,14 @@ class AdaptiveMoEMinimalLLM(nn.Module):
         return input_ids
 
 
-class AdaptiveStandardLLM(nn.Module):
+class T4StandardLLM(nn.Module):
     """
     Standard transformer LLM without MoE, but with GPU adaptations.
     
     This provides a simpler baseline model for comparison with MoE.
     """
     
-    def __init__(self, config: AdaptiveMoEModelConfig):
+    def __init__(self, config: T4MoEModelConfig):
         """
         Initialize the adaptive standard LLM.
         
@@ -294,7 +294,7 @@ class AdaptiveStandardLLM(nn.Module):
         self.config = config
 
         # Token embeddings
-        self.token_embedding = AdaptiveEmbedding(
+        self.token_embedding = T4Embedding(
             config.vocab_size, 
             config.d_model,
             init_method="auto"
@@ -317,7 +317,7 @@ class AdaptiveStandardLLM(nn.Module):
         ])
 
         # Output layers
-        self.norm = AdaptiveLayerNorm(config.d_model, norm_type="rms")
+        self.norm = T4LayerNorm(config.d_model, norm_type="rms")
         self.output_dropout = nn.Dropout(config.dropout)
 
         # Language modeling head
@@ -337,10 +337,10 @@ class AdaptiveStandardLLM(nn.Module):
 
     def _init_weights(self, module):
         """Initialize model weights."""
-        if isinstance(module, AdaptiveLinear):
-            pass  # Handled in AdaptiveLinear
-        elif isinstance(module, (AdaptiveEmbedding, nn.Embedding)):
-            pass  # Handled in AdaptiveEmbedding
+        if isinstance(module, T4Linear):
+            pass  # Handled in T4Linear
+        elif isinstance(module, (T4Embedding, nn.Embedding)):
+            pass  # Handled in T4Embedding
         elif isinstance(module, (nn.LayerNorm, nn.RMSNorm)):
             if hasattr(module, 'bias') and module.bias is not None:
                 nn.init.zeros_(module.bias)
@@ -374,7 +374,7 @@ class AdaptiveStandardLLM(nn.Module):
         return logits
 
 
-def should_use_megatron(config: AdaptiveMoEModelConfig) -> bool:
+def should_use_megatron(config: T4MoEModelConfig) -> bool:
     """
     Single T4 GPU - Megatron disabled.
     
@@ -387,7 +387,7 @@ def should_use_megatron(config: AdaptiveMoEModelConfig) -> bool:
     return False  # Single T4 GPU - no Megatron support
 
 
-def create_model(config: AdaptiveMoEModelConfig, model_type: str = "moe") -> nn.Module:
+def create_model(config: T4MoEModelConfig, model_type: str = "moe") -> nn.Module:
     """
     Factory function to create different model types.
     
@@ -400,9 +400,9 @@ def create_model(config: AdaptiveMoEModelConfig, model_type: str = "moe") -> nn.
     """
     # Single T4 GPU - use native backend only
     if model_type == "moe":
-        return AdaptiveMoEMinimalLLM(config)
+        return T4MoEMinimalLLM(config)
     elif model_type == "standard":
-        return AdaptiveStandardLLM(config)
+        return T4StandardLLM(config)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 

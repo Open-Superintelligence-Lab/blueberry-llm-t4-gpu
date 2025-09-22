@@ -16,7 +16,7 @@ import os
 from tqdm import tqdm
 from typing import List, Dict, Any, Optional, Tuple
 
-from configs import AdaptiveMoEModelConfig
+from configs import T4MoEModelConfig
 from optimizers import setup_optimizers, get_lr_scheduler
 from .evaluation import evaluate_model, compute_model_metrics
 from system import print_system_info
@@ -26,7 +26,7 @@ def train_with_megatron(
     model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
-    config: AdaptiveMoEModelConfig,
+    config: T4MoEModelConfig,
     device: Optional[torch.device] = None,
     resume_from_checkpoint: Optional[str] = None
 ) -> Tuple[nn.Module, Dict[str, Any]]:
@@ -54,7 +54,7 @@ def train_model(
     model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
-    config: AdaptiveMoEModelConfig,
+    config: T4MoEModelConfig,
     device: Optional[torch.device] = None,
     resume_from_checkpoint: Optional[str] = None
 ) -> Tuple[nn.Module, Dict[str, Any]]:
@@ -87,7 +87,7 @@ def train_model_native(
     model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
-    config: AdaptiveMoEModelConfig,
+    config: T4MoEModelConfig,
     device: Optional[torch.device] = None,
     resume_from_checkpoint: Optional[str] = None
 ) -> Tuple[nn.Module, Dict[str, Any]]:
@@ -161,7 +161,7 @@ class TrainingState:
         optimizers: List[torch.optim.Optimizer],
         schedulers: List,
         scaler: Optional[GradScaler],
-        config: AdaptiveMoEModelConfig,
+        config: T4MoEModelConfig,
         device: torch.device,
         start_step: int = 0
     ):
@@ -600,7 +600,7 @@ def validate_training_setup(
     model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
-    config: AdaptiveMoEModelConfig
+    config: T4MoEModelConfig
 ) -> bool:
     """
     Validate training setup before starting training.

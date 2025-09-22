@@ -20,10 +20,6 @@ from torch.utils.data import DataLoader, random_split
 from core.t4_config import t4_configure
 from legacy.llm import train_moe_model, load_and_cache_data, TextTokenDataset
 
-def auto_launch_distributed():
-    """Single T4 GPU - no distributed training needed"""
-    return False
-
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -40,9 +36,6 @@ def main():
     
     # Parse arguments
     args = parse_arguments()
-    
-    # Auto-launch with torchrun if needed
-    auto_launch_distributed()
     
     # T4-configure everything
     configurator = t4_configure()
@@ -107,10 +100,10 @@ def main():
         print("🚀 Using Megatron-enabled training pipeline...")
         from models import create_model
         from training import train_model
-        from configs import AdaptiveMoEModelConfig
+        from configs import T4MoEModelConfig
         
         # Convert legacy config to new config format
-        adaptive_config = AdaptiveMoEModelConfig(
+        t4_config = T4MoEModelConfig(
             d_model=model_config.d_model,
             n_heads=model_config.n_heads,
             n_layers=model_config.n_layers,
@@ -126,7 +119,7 @@ def main():
         )
         
         # Create model optimized for T4
-        model = create_model(adaptive_config, "moe")
+        model = create_model(t4_config, "moe")
         
         # Move to device
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -137,7 +130,7 @@ def main():
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
-            config=adaptive_config,
+            config=t4_config,
             device=device
         )
     else:
