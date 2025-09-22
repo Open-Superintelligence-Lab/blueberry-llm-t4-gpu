@@ -119,9 +119,7 @@ def print_system_info():
     print(f"   Compute Capability: {info['capability']}")
     print(f"   GPU Count: {info['device_count']}")
     print(f"   Memory: {info['memory_gb']:.1f} GB")
-    print(f"   FP8 Support: {info['has_fp8_support']}")
     print(f"   Tensor Cores: {info['has_tensor_cores']}")
-    print(f"   BF16 Support: {info['has_bf16_support']}")
     print(f"   Optimal Dtype: {info['optimal_dtype']}")
 
 

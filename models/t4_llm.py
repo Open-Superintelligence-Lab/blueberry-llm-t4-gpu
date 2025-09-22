@@ -321,7 +321,7 @@ class T4StandardLLM(nn.Module):
         self.output_dropout = nn.Dropout(config.dropout)
 
         # Language modeling head
-        self.lm_head = create_adaptive_linear(
+        self.lm_head = create_t4_linear(
             config.d_model, 
             config.vocab_size, 
             bias=False, 
@@ -372,19 +372,6 @@ class T4StandardLLM(nn.Module):
         logits = self.lm_head(x)
 
         return logits
-
-
-def should_use_megatron(config: T4MoEModelConfig) -> bool:
-    """
-    Single T4 GPU - Megatron disabled.
-    
-    Args:
-        config: Model configuration
-        
-    Returns:
-        Always False for single T4 GPU
-    """
-    return False  # Single T4 GPU - no Megatron support
 
 
 def create_model(config: T4MoEModelConfig, model_type: str = "moe") -> nn.Module:

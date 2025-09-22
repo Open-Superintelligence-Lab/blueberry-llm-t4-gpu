@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Optional
-from .layers import T4Linear, Rotary, T4LayerNorm, create_adaptive_linear
+from .layers import T4Linear, Rotary, T4LayerNorm, create_t4_linear
 from system import SYSTEM_CONFIG
 
 
@@ -54,7 +54,7 @@ class MultiHeadAttention(nn.Module):
         self.qkv = T4Linear(d_model, d_model * 3, bias=False, use_fp8=use_fp8)
         
         # Output projection with zero initialization (from reference implementation)
-        self.w_o = create_adaptive_linear(d_model, d_model, bias=False, zero_init=True, use_fp8=use_fp8)
+        self.w_o = create_t4_linear(d_model, d_model, bias=False, zero_init=True, use_fp8=use_fp8)
         
         # Rotary positional embedding
         self.rotary = Rotary(self.d_k, max_seq_len)
@@ -143,7 +143,7 @@ class Expert(nn.Module):
         
         # Two-layer MLP with adaptive operations
         self.linear1 = T4Linear(d_model, d_ff, bias=False, use_fp8=use_fp8)
-        self.linear2 = create_adaptive_linear(d_ff, d_model, bias=False, zero_init=True, use_fp8=use_fp8)
+        self.linear2 = create_t4_linear(d_ff, d_model, bias=False, zero_init=True, use_fp8=use_fp8)
         self.dropout = nn.Dropout(dropout)
         
         # Choose activation function

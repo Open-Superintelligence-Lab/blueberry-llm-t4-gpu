@@ -48,7 +48,7 @@ class T4Linear(nn.Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.use_fp8 = use_fp8 and SYSTEM_CONFIG.has_fp8_support
+        self.use_fp8 = False  # T4 doesn't support FP8
         self.init_method = init_method
         
         # Weight parameter
@@ -293,7 +293,7 @@ class T4LayerNorm(nn.Module):
         return f'normalized_shape={self.normalized_shape}, eps={self.eps}, type={self.norm_type}'
 
 
-def create_adaptive_linear(
+def create_t4_linear(
     in_features: int,
     out_features: int,
     bias: bool = True,
