@@ -55,6 +55,7 @@ class SpeedrunResult:
     memory_usage_mb: float
     avg_step_time_ms: float
     peak_memory_mb: float
+    steps_completed: int = 0
 
 
 class TrainingSpeedrunChallenge:
@@ -140,9 +141,13 @@ class TrainingSpeedrunChallenge:
                 self.tracker.finalize_experiment(final_metrics, timing_summary)
                 
                 # Print results to console
+                actual_steps = final_metrics.get('steps_completed', 0)
+                training_time = final_metrics.get('training_time_minutes', 0) * 60  # Convert to seconds
                 print(f"✅ Speedrun {i+1} completed: {config.name}")
                 print(f"   Steps/sec: {result.steps_per_second:.2f}")
-                print(f"   Time: {result.total_time_seconds:.2f}s")
+                print(f"   Steps completed: {actual_steps}")
+                print(f"   Training time: {training_time:.2f}s")
+                print(f"   Total time: {result.total_time_seconds:.2f}s")
                 print(f"   Avg step time: {result.avg_step_time_ms:.2f}ms")
                 print(f"   Final Loss: {result.final_loss:.4f}")
                 print(f"   Peak Memory: {result.peak_memory_mb:.1f} MB")
@@ -233,17 +238,21 @@ class TrainingSpeedrunChallenge:
         
         # Get memory usage
         peak_memory = torch.cuda.max_memory_allocated() / 1024 / 1024 if torch.cuda.is_available() else 0
-        avg_step_time_ms = (training_time * 1000) / config.max_steps
+        
+        # Get actual steps completed from training metrics
+        actual_steps_completed = final_metrics.get('steps_completed', 0)
+        avg_step_time_ms = (training_time * 1000) / actual_steps_completed if actual_steps_completed > 0 else 0
         
         return SpeedrunResult(
             config=config,
             total_time_seconds=total_time,
-            steps_per_second=config.max_steps / training_time if training_time > 0 else 0,
+            steps_per_second=actual_steps_completed / training_time if training_time > 0 else 0,
             final_loss=final_metrics.get('val_loss', 0.0),
             final_accuracy=final_metrics.get('val_accuracy', 0.0),
             memory_usage_mb=peak_memory,
             avg_step_time_ms=avg_step_time_ms,
-            peak_memory_mb=peak_memory
+            peak_memory_mb=peak_memory,
+            steps_completed=actual_steps_completed
         )
     
     def _print_challenge_results(self):
@@ -260,7 +269,7 @@ class TrainingSpeedrunChallenge:
         
         for result in sorted_results:
             print(f"{result.config.name}: {result.steps_per_second:.2f} steps/sec, "
-                  f"{result.total_time_seconds:.1f}s, {result.final_loss:.4f} loss")
+                  f"{result.steps_completed} steps, {result.total_time_seconds:.1f}s, {result.final_loss:.4f} loss")
         
         # Find winner
         winner = sorted_results[0]
@@ -280,6 +289,7 @@ class TrainingSpeedrunChallenge:
                 'config': asdict(result.config),
                 'total_time_seconds': result.total_time_seconds,
                 'steps_per_second': result.steps_per_second,
+                'steps_completed': result.steps_completed,
                 'final_loss': result.final_loss,
                 'final_accuracy': result.final_accuracy,
                 'memory_usage_mb': result.memory_usage_mb,
