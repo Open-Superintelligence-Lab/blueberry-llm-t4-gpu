@@ -142,11 +142,12 @@ class TrainingSpeedrunChallenge:
                 
                 # Print results to console
                 actual_steps = final_metrics.get('steps_completed', 0)
-                training_time = final_metrics.get('training_time_minutes', 0) * 60  # Convert to seconds
+                training_time_minutes = final_metrics.get('training_time_minutes', 0)
+                training_time_seconds = training_time_minutes * 60 if training_time_minutes > 0 else 60.0
                 print(f"✅ Speedrun {i+1} completed: {config.name}")
                 print(f"   Steps/sec: {result.steps_per_second:.2f}")
                 print(f"   Steps completed: {actual_steps}")
-                print(f"   Training time: {training_time:.2f}s")
+                print(f"   Training time: {training_time_seconds:.2f}s")
                 print(f"   Total time: {result.total_time_seconds:.2f}s")
                 print(f"   Avg step time: {result.avg_step_time_ms:.2f}ms")
                 print(f"   Final Loss: {result.final_loss:.4f}")
@@ -230,7 +231,7 @@ class TrainingSpeedrunChallenge:
         training_start = time.time()
         
         model, final_metrics = train_moe_model_timed(
-            model_config, train_loader, val_loader, time_limit_minutes=1
+            model_config, train_loader, val_loader, time_limit_minutes=1.0
         )
         
         training_time = time.time() - training_start
@@ -271,15 +272,24 @@ class TrainingSpeedrunChallenge:
             print(f"{result.config.name}: {result.steps_per_second:.2f} steps/sec, "
                   f"{result.steps_completed} steps, {result.total_time_seconds:.1f}s, {result.final_loss:.4f} loss")
         
-        # Find winner
+        # Find winner based on steps per second
         winner = sorted_results[0]
         print(f"\n🏆 Winner: {winner.config.name} ({winner.steps_per_second:.2f} steps/sec)")
         
+        # Additional analysis for fairness
         if len(self.results) > 1:
             baseline = next((r for r in self.results if r.config.name == "baseline"), None)
             if baseline and winner.config.name != "baseline":
                 speedup = winner.steps_per_second / baseline.steps_per_second
                 print(f"📈 {speedup:.2f}x speedup over baseline")
+                
+                # Show step count difference
+                step_diff = winner.steps_completed - baseline.steps_completed
+                print(f"📊 Step difference: {winner.config.name} completed {step_diff} more steps")
+                
+                # Show time difference
+                time_diff = abs(winner.total_time_seconds - baseline.total_time_seconds)
+                print(f"⏱️  Time difference: {time_diff:.1f}s")
     
     def save_results(self, filename: str = "speedrun_challenge_results.json"):
         """Save speedrun results to JSON file."""
