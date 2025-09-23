@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Minimal Training Speed Challenge: Baseline vs Memory Optimized
+Simple Training Speed Challenge: Baseline vs Memory Optimized
 
 This script runs a focused speedrun challenge between baseline and memory-optimized
-configurations for 1000 steps each to establish performance measurement standards.
+configurations to establish performance measurement standards.
 """
 
 import os
@@ -13,7 +13,7 @@ import json
 import torch
 import argparse
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from torch.utils.data import DataLoader, random_split
 
 # Add current directory to path
@@ -24,7 +24,7 @@ from core.t4_config import t4_configure
 from legacy.llm import load_and_cache_data, TextTokenDataset, MoEMinimalLLM
 from configs.t4_moe_config import T4MoEModelConfig
 from timed_training import train_model_with_timing
-from record_tracker import RecordTracker, get_tracker, reset_tracker
+from record_tracker import get_tracker
 
 
 @dataclass
@@ -80,14 +80,14 @@ class TrainingSpeedrunChallenge:
                 pin_memory=False,
                 prefetch_factor=2,
                 max_steps=50,
-                eval_every=5,
-                eval_steps=20
+                eval_every=10,
+                eval_steps=10
             ),
             
             # Memory Optimized Configuration
             SpeedrunConfig(
                 name="memory_optimized",
-                description="Memory-optimized configuration (winner from previous tests)",
+                description="Memory-optimized configuration",
                 batch_size=8,
                 gradient_accumulation_steps=4,
                 use_amp=True,
@@ -96,8 +96,8 @@ class TrainingSpeedrunChallenge:
                 pin_memory=True,
                 prefetch_factor=2,
                 max_steps=50,
-                eval_every=5,
-                eval_steps=20
+                eval_every=10,
+                eval_steps=10
             )
         ]
         return configs
@@ -176,40 +176,35 @@ class TrainingSpeedrunChallenge:
         model_config.eval_steps = config.eval_steps
         
         # Auto-size dataset for speedrun
-        model_config.num_documents = 2000
-        model_config.max_tokens = 200000
+        model_config.num_documents = 1000  # Reduced for faster testing
+        model_config.max_tokens = 100000   # Reduced for faster testing
         
         print(f"   Loading {model_config.num_documents} documents...")
         
         # Load data
-        print("   📚 Loading and tokenizing data...")
+        print("   📚 Loading data...")
         texts, tokenizer, tokens = load_and_cache_data(model_config)
-        print("   ✅ Data loaded successfully")
         
         print("   🔧 Creating dataset...")
         dataset = TextTokenDataset(tokens, model_config.max_seq_len)
-        print(f"   ✅ Dataset created with {len(dataset)} samples")
         
         # Train/val split
-        print("   🔄 Splitting dataset into train/val...")
+        print("   🔄 Splitting dataset...")
         val_size = len(dataset) // 10
         train_size = len(dataset) - val_size
         train_dataset, val_dataset = random_split(
             dataset, [train_size, val_size], 
             generator=torch.Generator().manual_seed(42)
         )
-        print(f"   ✅ Split complete: {len(train_dataset)} train, {len(val_dataset)} val")
         
-        # Create optimized data loaders
-        print("   🔧 Creating data loaders...")
+        # Create data loaders
         train_loader = DataLoader(
             train_dataset,
             batch_size=model_config.batch_size,
             shuffle=True,
             num_workers=config.num_workers,
             pin_memory=config.pin_memory,
-            prefetch_factor=config.prefetch_factor,
-            persistent_workers=True if config.num_workers > 0 else False
+            prefetch_factor=config.prefetch_factor
         )
         
         val_loader = DataLoader(
@@ -218,22 +213,15 @@ class TrainingSpeedrunChallenge:
             shuffle=False,
             num_workers=config.num_workers,
             pin_memory=config.pin_memory,
-            prefetch_factor=config.prefetch_factor,
-            persistent_workers=True if config.num_workers > 0 else False
+            prefetch_factor=config.prefetch_factor
         )
-        print(f"   ✅ Data loaders created (batch_size={model_config.batch_size}, workers={config.num_workers})")
         
         # Create model
         print("   🧠 Creating model...")
         model = MoEMinimalLLM(model_config)
-        print(f"   ✅ Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
         
-        # Train the model with timing
+        # Train the model
         print("   🚀 Starting training...")
-        print(f"   📊 Training for {config.max_steps} steps")
-        print(f"   🔧 Batch size: {model_config.batch_size}")
-        print(f"   🔧 Gradient accumulation: {model_config.gradient_accumulation_steps}")
-        print(f"   🔧 Mixed precision: {model_config.use_amp}")
         training_start = time.time()
         
         model, final_metrics = train_model_with_timing(
@@ -243,7 +231,7 @@ class TrainingSpeedrunChallenge:
         training_time = time.time() - training_start
         total_time = time.time() - start_time
         
-        # Get detailed memory usage
+        # Get memory usage
         peak_memory = torch.cuda.max_memory_allocated() / 1024 / 1024 if torch.cuda.is_available() else 0
         avg_step_time_ms = (training_time * 1000) / config.max_steps
         
@@ -265,41 +253,24 @@ class TrainingSpeedrunChallenge:
             return
         
         print(f"\n🏁 SPEEDRUN CHALLENGE RESULTS")
-        print("=" * 80)
-        print(f"{'Configuration':<20} {'Steps/s':<10} {'Time(s)':<10} {'Step(ms)':<10} {'Loss':<8} {'Memory(MB)':<12}")
-        print("-" * 80)
+        print("=" * 60)
         
         # Sort by steps per second (speed)
         sorted_results = sorted(self.results, key=lambda x: x.steps_per_second, reverse=True)
         
         for result in sorted_results:
-            print(f"{result.config.name:<20} {result.steps_per_second:<10.2f} "
-                  f"{result.total_time_seconds:<10.2f} {result.avg_step_time_ms:<10.2f} "
-                  f"{result.final_loss:<8.4f} {result.peak_memory_mb:<12.1f}")
+            print(f"{result.config.name}: {result.steps_per_second:.2f} steps/sec, "
+                  f"{result.total_time_seconds:.1f}s, {result.final_loss:.4f} loss")
         
-        # Find winner and calculate improvement
+        # Find winner
         winner = sorted_results[0]
-        baseline = next((r for r in self.results if r.config.name == "baseline"), None)
+        print(f"\n🏆 Winner: {winner.config.name} ({winner.steps_per_second:.2f} steps/sec)")
         
-        print(f"\n🏆 WINNER: {winner.config.name}")
-        print(f"   Speed: {winner.steps_per_second:.2f} steps/second")
-        print(f"   Time: {winner.total_time_seconds:.2f} seconds")
-        print(f"   Avg step time: {winner.avg_step_time_ms:.2f}ms")
-        
-        if baseline and winner.config.name != "baseline":
-            speedup = winner.steps_per_second / baseline.steps_per_second
-            time_saved = baseline.total_time_seconds - winner.total_time_seconds
-            print(f"\n📈 IMPROVEMENT OVER BASELINE:")
-            print(f"   Speed improvement: {speedup:.2f}x")
-            print(f"   Time saved: {time_saved:.2f} seconds")
-            print(f"   Memory efficiency: {baseline.peak_memory_mb/winner.peak_memory_mb:.2f}x")
-        
-        # Performance measurement standards
-        print(f"\n📊 PERFORMANCE MEASUREMENT STANDARDS:")
-        print(f"   Primary metric: Steps per second")
-        print(f"   Secondary metrics: Total time, Average step time")
-        print(f"   Memory metric: Peak GPU memory usage")
-        print(f"   Quality metric: Final validation loss")
+        if len(self.results) > 1:
+            baseline = next((r for r in self.results if r.config.name == "baseline"), None)
+            if baseline and winner.config.name != "baseline":
+                speedup = winner.steps_per_second / baseline.steps_per_second
+                print(f"📈 {speedup:.2f}x speedup over baseline")
     
     def save_results(self, filename: str = "speedrun_challenge_results.json"):
         """Save speedrun results to JSON file."""
@@ -330,11 +301,6 @@ def main():
                        help="Output file for results")
     args = parser.parse_args()
     
-    # Initialize record tracking
-    tracker = get_tracker()
-    tracker.log("🏁 Starting Training Speedrun Challenge")
-    tracker.log(f"📁 Output file: {args.output}")
-    
     try:
         # Run speedrun challenge
         challenge = TrainingSpeedrunChallenge()
@@ -343,15 +309,12 @@ def main():
         # Save results
         challenge.save_results(args.output)
         
-        tracker.log(f"\n✅ Speedrun challenge completed!")
-        tracker.log(f"📁 Results saved to: {args.output}")
+        print(f"\n✅ Speedrun challenge completed!")
+        print(f"📁 Results saved to: {args.output}")
         
     except Exception as e:
-        tracker.log(f"❌ Speedrun challenge failed: {e}")
+        print(f"❌ Speedrun challenge failed: {e}")
         raise
-    finally:
-        # Cleanup
-        tracker.cleanup()
 
 
 if __name__ == "__main__":

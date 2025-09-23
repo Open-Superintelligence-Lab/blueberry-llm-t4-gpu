@@ -2,8 +2,7 @@
 """
 Record Tracking System for Training Speed Experiments
 
-This module implements the same record tracking technique as reference_measurement.py
-for tracking training speed records and performance benchmarks.
+Simple system for tracking training speed records and performance benchmarks.
 """
 
 import os
@@ -11,18 +10,9 @@ import sys
 import uuid
 import time
 import json
-import copy
 from dataclasses import dataclass, asdict
-from pathlib import Path
 from typing import Dict, List, Any, Optional
 import torch
-
-# Read the code of this file ASAP for logging (same as reference)
-try:
-    with open(__file__) as f:
-        code = f.read()
-except:
-    code = "# Code reading failed"
 
 
 @dataclass
@@ -39,22 +29,6 @@ class SpeedRecord:
     run_id: str
     hardware_info: Dict[str, Any]
     code_hash: str
-
-
-@dataclass
-class PerformanceBenchmark:
-    """Performance benchmark data."""
-    experiment_name: str
-    step_times: List[float]
-    forward_times: List[float]
-    backward_times: List[float]
-    optimizer_times: List[float]
-    data_loading_times: List[float]
-    memory_usage_history: List[float]
-    gpu_memory_history: List[float]
-    config: Dict[str, Any]
-    timestamp: str
-    run_id: str
 
 
 class RecordTracker:
@@ -74,43 +48,22 @@ class RecordTracker:
         
         # Record storage
         self.current_record: Optional[SpeedRecord] = None
-        self.benchmark_data: Optional[PerformanceBenchmark] = None
         
     def _log_setup(self):
-        """Setup logging system (same as reference)."""
+        """Setup logging system."""
         print(f"📊 Record tracking started: {self.logfile}")
         
-        # Log the code (same as reference)
-        self.log(f"# Training Speed Experiment Code")
-        self.log("=" * 100)
-        self.log(code)
-        self.log("=" * 100)
-        
-        # Log environment info
-        self.log(f"Running Python {sys.version}")
-        self.log(f"Running PyTorch {torch.version.__version__}")
+        # Log basic environment info
+        self.log(f"Python: {sys.version.split()[0]}")
+        self.log(f"PyTorch: {torch.version.__version__}")
         if torch.cuda.is_available():
-            self.log(f"CUDA available: {torch.version.cuda}")
-            self.log(f"GPU count: {torch.cuda.device_count()}")
-            for i in range(torch.cuda.device_count()):
-                props = torch.cuda.get_device_properties(i)
-                self.log(f"GPU {i}: {props.name} ({props.total_memory // 1024 // 1024} MB)")
+            self.log(f"CUDA: {torch.version.cuda}")
+            self.log(f"GPU: {torch.cuda.get_device_name()}")
         else:
             self.log("CUDA not available - running on CPU")
-        
-        # Log nvidia-smi if available
-        try:
-            import subprocess
-            nvidia_smi = subprocess.run(["nvidia-smi"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True).stdout
-            self.log("nvidia-smi output:")
-            self.log(nvidia_smi)
-        except:
-            self.log("nvidia-smi not available")
-        
-        self.log("=" * 100)
     
     def log(self, message: str, console: bool = True):
-        """Log a message (same as reference print0)."""
+        """Log a message."""
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         log_message = f"[{timestamp}] {message}"
         
@@ -140,16 +93,15 @@ class RecordTracker:
             timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
             run_id=self.run_id,
             hardware_info=hardware_info,
-            code_hash=hash(code)
+            code_hash=hash(str(config))
         )
     
     def update_training_progress(self, step: int, total_steps: int, loss: float, 
                                 step_time_ms: float, memory_mb: float):
-        """Update training progress (same timing format as reference)."""
+        """Update training progress."""
         elapsed_time_ms = (time.time() - self.start_time) * 1000
         step_avg_ms = elapsed_time_ms / max(step, 1)
         
-        # Log in same format as reference
         self.log(f"step:{step}/{total_steps} loss:{loss:.4f} "
                 f"train_time:{elapsed_time_ms:.0f}ms step_avg:{step_avg_ms:.2f}ms "
                 f"memory:{memory_mb:.1f}MB", console=True)
@@ -185,9 +137,9 @@ class RecordTracker:
         self._save_record()
     
     def _get_hardware_info(self) -> Dict[str, Any]:
-        """Get hardware information."""
+        """Get basic hardware information."""
         info = {
-            "python_version": sys.version,
+            "python_version": sys.version.split()[0],
             "pytorch_version": torch.version.__version__,
             "cuda_available": torch.cuda.is_available(),
         }
@@ -195,17 +147,9 @@ class RecordTracker:
         if torch.cuda.is_available():
             info.update({
                 "cuda_version": torch.version.cuda,
-                "gpu_count": torch.cuda.device_count(),
-                "gpus": []
+                "gpu_name": torch.cuda.get_device_name(),
+                "gpu_memory_mb": torch.cuda.get_device_properties(0).total_memory // 1024 // 1024
             })
-            
-            for i in range(torch.cuda.device_count()):
-                props = torch.cuda.get_device_properties(i)
-                info["gpus"].append({
-                    "name": props.name,
-                    "memory_mb": props.total_memory // 1024 // 1024,
-                    "compute_capability": f"{props.major}.{props.minor}"
-                })
         
         return info
     
@@ -262,7 +206,7 @@ class RecordTracker:
             return []
     
     def print_records_summary(self):
-        """Print a summary of all records."""
+        """Print a simple summary of all records."""
         records = self.get_speed_records()
         
         if not records:
@@ -272,33 +216,14 @@ class RecordTracker:
         # Sort by steps per second
         records.sort(key=lambda x: x.steps_per_second, reverse=True)
         
-        self.log("\n🏆 SPEED RECORDS SUMMARY")
-        self.log("=" * 100)
-        self.log(f"{'Rank':<4} {'Experiment':<25} {'Steps/s':<10} {'Time(s)':<10} {'Loss':<8} {'Memory(MB)':<12} {'Date':<20}")
-        self.log("-" * 100)
+        self.log(f"\n🏆 Speed Records: {len(records)} experiments")
         
-        for i, record in enumerate(records[:10]):  # Top 10
-            self.log(f"{i+1:<4} {record.experiment_name:<25} {record.steps_per_second:<10.2f} "
-                    f"{record.total_time_seconds:<10.2f} {record.final_loss:<8.4f} "
-                    f"{record.memory_usage_mb:<12.1f} {record.timestamp:<20}")
+        for i, record in enumerate(records[:5]):  # Top 5
+            self.log(f"{i+1}. {record.experiment_name}: {record.steps_per_second:.2f} steps/sec")
         
-        # Show best record
         if records:
             best = records[0]
-            self.log(f"\n🥇 BEST RECORD: {best.experiment_name}")
-            self.log(f"   Speed: {best.steps_per_second:.2f} steps/second")
-            self.log(f"   Time: {best.total_time_seconds:.2f} seconds")
-            self.log(f"   Loss: {best.final_loss:.4f}")
-            self.log(f"   Date: {best.timestamp}")
-            self.log(f"   Run ID: {best.run_id}")
-    
-    def save_benchmark_data(self, benchmark: PerformanceBenchmark):
-        """Save detailed benchmark data."""
-        benchmark_file = f"logs/{self.run_id}_benchmark.json"
-        with open(benchmark_file, "w") as f:
-            json.dump(asdict(benchmark), f, indent=2)
-        
-        self.log(f"📈 Benchmark data saved to {benchmark_file}")
+            self.log(f"\n🥇 Best: {best.experiment_name} ({best.steps_per_second:.2f} steps/sec)")
     
     def cleanup(self):
         """Cleanup and finalize logging."""
@@ -307,11 +232,9 @@ class RecordTracker:
         
         if torch.cuda.is_available():
             peak_memory = torch.cuda.max_memory_allocated() // 1024 // 1024
-            reserved_memory = torch.cuda.max_memory_reserved() // 1024 // 1024
-            self.log(f"Peak GPU memory: {peak_memory} MB allocated, {reserved_memory} MB reserved")
+            self.log(f"Peak GPU memory: {peak_memory} MB")
         
-        self.log(f"📁 All logs saved to: {self.logfile}")
-        self.log(f"🆔 Run ID: {self.run_id}")
+        self.log(f"📁 Logs saved to: {self.logfile}")
 
 
 # Global tracker instance
