@@ -428,8 +428,8 @@ def _evaluate_and_log(
     # Compute training time
     elapsed_time = time.time() - state.training_start_time
     
-    # Evaluate model
-    eval_metrics = evaluate_model(state.model, val_loader, state.config)
+    # Evaluate model (limit to configured eval_steps)
+    eval_metrics = evaluate_model(state.model, val_loader, state.config, max_eval_steps=state.config.eval_steps)
     
     # Add timing info
     eval_metrics.update({

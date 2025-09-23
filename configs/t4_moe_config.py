@@ -38,7 +38,7 @@ class T4MoEModelConfig:
 
     # Evaluation
     eval_every: int = 500
-    eval_steps: int = 100
+    eval_steps: int = 50  # Reduced from 100 for faster evaluation
 
     # Regularization
     weight_decay: float = 0.1
