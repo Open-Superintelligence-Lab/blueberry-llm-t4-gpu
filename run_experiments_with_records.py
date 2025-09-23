@@ -30,26 +30,17 @@ def main():
     start_time = time.time()
     
     try:
-        # Run the experiments script
+        # Run the experiments script with real-time output
+        print("🚀 Starting experiments...")
         result = subprocess.run([
             sys.executable, "experiments.py", 
             "--output", "training_speed_results.json"
-        ], capture_output=True, text=True, timeout=3600)  # 1 hour timeout
+        ], timeout=3600)  # 1 hour timeout
         
         if result.returncode == 0:
             print("✅ Experiments completed successfully!")
-            print("\n📊 Results:")
-            print(result.stdout)
-            
-            if result.stderr:
-                print("\n⚠️  Warnings/Info:")
-                print(result.stderr)
         else:
-            print("❌ Experiments failed!")
-            print("Error output:")
-            print(result.stderr)
-            print("Standard output:")
-            print(result.stdout)
+            print(f"❌ Experiments failed with return code: {result.returncode}")
             
     except subprocess.TimeoutExpired:
         print("⏰ Experiments timed out after 1 hour")

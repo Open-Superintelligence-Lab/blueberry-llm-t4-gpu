@@ -156,6 +156,11 @@ class TrainingSpeedExperiments:
             self.tracker.log(f"   Description: {experiment.description}")
             self.tracker.log("-" * 40)
             
+            # Also print to console for remote monitoring
+            print(f"\n🧪 Experiment {i+1}/{len(self.experiments)}: {experiment.name}")
+            print(f"   Description: {experiment.description}")
+            print(f"   Starting at {time.strftime('%H:%M:%S')}...")
+            
             try:
                 # Start tracking this experiment
                 self.tracker.start_experiment(asdict(experiment))
@@ -180,12 +185,31 @@ class TrainingSpeedExperiments:
                 self.tracker.log(f"   Final Loss: {result.final_loss:.4f}")
                 self.tracker.log(f"   Memory Usage: {result.memory_usage_mb:.1f} MB")
                 
+                # Also print to console for remote monitoring
+                print(f"✅ Experiment {i+1}/{len(self.experiments)} completed: {experiment.name}")
+                print(f"   Steps/sec: {result.steps_per_second:.2f}")
+                print(f"   Time: {result.total_time_seconds:.2f}s")
+                print(f"   Loss: {result.final_loss:.4f}")
+                
             except Exception as e:
                 self.tracker.log(f"❌ Experiment failed: {e}")
+                print(f"❌ Experiment {i+1}/{len(self.experiments)} failed: {experiment.name}")
+                print(f"   Error: {e}")
                 continue
         
         # Print records summary
         self.tracker.print_records_summary()
+        
+        # Print final summary to console
+        print(f"\n🏁 All {len(self.experiments)} experiments completed!")
+        if self.results:
+            fastest = max(self.results, key=lambda x: x.steps_per_second)
+            print(f"🏆 Fastest: {fastest.config.name} ({fastest.steps_per_second:.2f} steps/sec)")
+            
+            baseline = next((r for r in self.results if r.config.name == "baseline"), None)
+            if baseline and fastest.config.name != "baseline":
+                speedup = fastest.steps_per_second / baseline.steps_per_second
+                print(f"📈 Speedup vs baseline: {speedup:.2f}x")
         
         return self.results
     

@@ -197,6 +197,10 @@ def train_model_with_timing(
                 memory_mb = torch.cuda.max_memory_allocated() / 1024 / 1024 if torch.cuda.is_available() else 0
                 tracker.update_training_progress(step, config.max_steps, ce_loss.item(), 
                                                timer.metrics.get_average_step_time() * 1000, memory_mb)
+                
+                # Also print progress to console for remote monitoring
+                print(f"   Step {step}/{config.max_steps} - Loss: {ce_loss.item():.4f} - "
+                      f"Steps/sec: {step / (time.time() - training_start_time):.1f}")
             
             # Evaluation
             if step % config.eval_every == 0 and step > 0:
@@ -210,6 +214,7 @@ def train_model_with_timing(
                 if eval_metrics['val_loss'] < best_val_loss:
                     best_val_loss = eval_metrics['val_loss']
                     tracker.log(f"🎉 New best validation loss: {best_val_loss:.4f}")
+                    print(f"   🎉 New best validation loss: {best_val_loss:.4f}")
     
     pbar.close()
     
