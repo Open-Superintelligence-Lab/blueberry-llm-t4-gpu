@@ -37,7 +37,7 @@ def setup_muon_optimizer(model: nn.Module, config: MoEModelConfig):
     return [muon_optimizer, adamw_optimizer]
 
 
-def train_moe_model(config: MoEModelConfig, train_loader: DataLoader, val_loader: DataLoader):
+def train_moe_model(config: MoEModelConfig, train_loader: DataLoader, val_loader: DataLoader, return_eval_history=False):
     """Train the MoE model"""
     print(f"\n🚀 Training MoE model with {config.num_experts} experts (top-{config.expert_top_k})")
 
@@ -86,6 +86,7 @@ def train_moe_model(config: MoEModelConfig, train_loader: DataLoader, val_loader
     eval_steps = []
     eval_losses = []
     eval_times = []
+    eval_history = []  # Store complete evaluation metrics
 
     while step < config.max_steps:
         for batch_idx, (x, y) in enumerate(train_loader):
@@ -164,6 +165,13 @@ def train_moe_model(config: MoEModelConfig, train_loader: DataLoader, val_loader
                 eval_steps.append(step)
                 eval_losses.append(eval_metrics['val_loss'])
                 eval_times.append(time.time())
+                eval_history.append({
+                    'step': step,
+                    'time': time.time(),
+                    'val_loss': eval_metrics['val_loss'],
+                    'val_accuracy': eval_metrics['val_accuracy'],
+                    'val_perplexity': eval_metrics['val_perplexity']
+                })
                 
                 print(f"\nStep {step}: Val Loss: {eval_metrics['val_loss']:.4f}, "
                       f"Val Acc: {eval_metrics['val_accuracy']:.4f}, "
@@ -187,6 +195,13 @@ def train_moe_model(config: MoEModelConfig, train_loader: DataLoader, val_loader
     eval_steps.append(config.max_steps)
     eval_losses.append(final_eval['val_loss'])
     eval_times.append(time.time())
+    eval_history.append({
+        'step': config.max_steps,
+        'time': time.time(),
+        'val_loss': final_eval['val_loss'],
+        'val_accuracy': final_eval['val_accuracy'],
+        'val_perplexity': final_eval['val_perplexity']
+    })
     
     print(f"\n📊 Final Results:")
     print(f"   Val Loss: {final_eval['val_loss']:.4f}")
@@ -210,4 +225,7 @@ def train_moe_model(config: MoEModelConfig, train_loader: DataLoader, val_loader
         plt.show()
         print(f"\n📈 Evaluation loss plot saved as 'eval_loss_vs_time.png'")
 
-    return model, final_eval
+    if return_eval_history:
+        return model, final_eval, eval_history
+    else:
+        return model, final_eval
