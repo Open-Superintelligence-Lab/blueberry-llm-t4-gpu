@@ -18,8 +18,11 @@ from typing import Dict, List, Any, Optional
 import torch
 
 # Read the code of this file ASAP for logging (same as reference)
-with open(sys.argv[0]) as f:
-    code = f.read()
+try:
+    with open(__file__) as f:
+        code = f.read()
+except:
+    code = "# Code reading failed"
 
 
 @dataclass
