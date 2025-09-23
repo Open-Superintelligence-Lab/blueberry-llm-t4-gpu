@@ -12,7 +12,7 @@ def main():
     print("🏁 Training Speedrun Challenge")
     print("=" * 50)
     print("📊 Challenge: Baseline vs Memory Optimized")
-    print("⏱️  Steps per experiment: 1000")
+    print("⏱️  Steps per experiment: 200 (quadrupled from 50)")
     print("🎯 Goal: Establish performance measurement standards")
     print()
     

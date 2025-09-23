@@ -79,8 +79,8 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=False,
                 prefetch_factor=2,
-                max_steps=50,
-                eval_every=10,
+                max_steps=200,
+                eval_every=200,
                 eval_steps=10
             ),
             
@@ -95,8 +95,8 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=True,
                 prefetch_factor=2,
-                max_steps=50,
-                eval_every=10,
+                max_steps=200,
+                eval_every=200,
                 eval_steps=10
             )
         ]
@@ -107,7 +107,7 @@ class TrainingSpeedrunChallenge:
         self.tracker.log("🏁 Starting Training Speedrun Challenge")
         self.tracker.log("=" * 60)
         self.tracker.log(f"📊 Challenge: Baseline vs Memory Optimized")
-        self.tracker.log(f"⏱️  Steps per experiment: {self.configs[0].max_steps}")
+        self.tracker.log(f"⏱️  Steps per experiment: {self.configs[0].max_steps} (quadrupled from 50)")
         self.tracker.log(f"🎯 Goal: Establish performance measurement standards")
         
         for i, config in enumerate(self.configs):
