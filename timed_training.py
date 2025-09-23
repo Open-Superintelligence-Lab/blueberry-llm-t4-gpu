@@ -24,6 +24,7 @@ sys.path.insert(0, current_dir)
 
 from timing import TrainingTimer, get_timer, reset_timer
 from configs.t4_moe_config import T4MoEModelConfig
+from record_tracker import get_tracker
 
 
 def train_model_with_timing(
@@ -51,14 +52,15 @@ def train_model_with_timing(
     # Reset timer for this experiment
     reset_timer()
     timer = get_timer()
+    tracker = get_tracker()
     
     # Setup device
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     
-    print(f"\n🚀 Starting timed training: {experiment_name}")
-    print("=" * 60)
+    tracker.log(f"\n🚀 Starting timed training: {experiment_name}")
+    tracker.log("=" * 60)
     
     # Setup optimizers and schedulers
     from optimizers import setup_optimizers, get_lr_scheduler
@@ -81,10 +83,10 @@ def train_model_with_timing(
     model.train()
     pbar = tqdm(total=config.max_steps, desc=f"Training {experiment_name}")
     
-    print(f"📊 Training for {config.max_steps} steps")
-    print(f"🔧 Batch size: {config.batch_size}")
-    print(f"🔧 Gradient accumulation: {config.gradient_accumulation_steps}")
-    print(f"🔧 Mixed precision: {config.use_amp}")
+    tracker.log(f"📊 Training for {config.max_steps} steps")
+    tracker.log(f"🔧 Batch size: {config.batch_size}")
+    tracker.log(f"🔧 Gradient accumulation: {config.gradient_accumulation_steps}")
+    tracker.log(f"🔧 Mixed precision: {config.use_amp}")
     
     while step < config.max_steps:
         for batch_idx, (x, y) in enumerate(train_loader):
@@ -182,7 +184,7 @@ def train_model_with_timing(
                         for scheduler in schedulers:
                             scheduler.step()
             
-            # Update progress bar
+            # Update progress bar and record tracking
             if step % 20 == 0:
                 pbar.update(20)
                 pbar.set_postfix({
@@ -190,15 +192,24 @@ def train_model_with_timing(
                     'aux': f"{aux_loss.item() if aux_loss is not None else 0.0:.4f}",
                     'step': step
                 })
+                
+                # Update record tracker (same format as reference)
+                memory_mb = torch.cuda.max_memory_allocated() / 1024 / 1024 if torch.cuda.is_available() else 0
+                tracker.update_training_progress(step, config.max_steps, ce_loss.item(), 
+                                               timer.metrics.get_average_step_time() * 1000, memory_mb)
             
             # Evaluation
             if step % config.eval_every == 0 and step > 0:
                 eval_metrics = evaluate_model_with_timing(model, val_loader, config)
                 
+                # Update record tracker with validation results
+                tracker.update_validation(step, eval_metrics['val_loss'], 
+                                        eval_metrics['val_accuracy'], 0)  # val_time_ms not available
+                
                 # Check for best model
                 if eval_metrics['val_loss'] < best_val_loss:
                     best_val_loss = eval_metrics['val_loss']
-                    print(f"🎉 New best validation loss: {best_val_loss:.4f}")
+                    tracker.log(f"🎉 New best validation loss: {best_val_loss:.4f}")
     
     pbar.close()
     
@@ -219,7 +230,7 @@ def train_model_with_timing(
         'best_val_loss': best_val_loss
     })
     
-    print(f"\n🎯 Training completed for {experiment_name}!")
+    tracker.log(f"\n🎯 Training completed for {experiment_name}!")
     timer.print_summary()
     
     return model, final_metrics

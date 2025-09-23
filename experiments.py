@@ -24,6 +24,7 @@ from core.t4_config import t4_configure
 from legacy.llm import load_and_cache_data, TextTokenDataset
 from configs.t4_moe_config import T4MoEModelConfig
 from timed_training import train_model_with_timing
+from record_tracker import RecordTracker, get_tracker, reset_tracker
 
 
 @dataclass
@@ -60,6 +61,7 @@ class TrainingSpeedExperiments:
     def __init__(self):
         self.results: List[ExperimentResult] = []
         self.experiments = self._define_experiments()
+        self.tracker = get_tracker()
         
     def _define_experiments(self) -> List[ExperimentConfig]:
         """Define the 5 experiments plus baseline."""
@@ -146,26 +148,44 @@ class TrainingSpeedExperiments:
     
     def run_all_experiments(self) -> List[ExperimentResult]:
         """Run all experiments and return results."""
-        print("🚀 Starting Training Speed Experiments")
-        print("=" * 60)
+        self.tracker.log("🚀 Starting Training Speed Experiments")
+        self.tracker.log("=" * 60)
         
         for i, experiment in enumerate(self.experiments):
-            print(f"\n🧪 Experiment {i+1}/{len(self.experiments)}: {experiment.name}")
-            print(f"   Description: {experiment.description}")
-            print("-" * 40)
+            self.tracker.log(f"\n🧪 Experiment {i+1}/{len(self.experiments)}: {experiment.name}")
+            self.tracker.log(f"   Description: {experiment.description}")
+            self.tracker.log("-" * 40)
             
             try:
+                # Start tracking this experiment
+                self.tracker.start_experiment(asdict(experiment))
+                
                 result = self._run_single_experiment(experiment)
                 self.results.append(result)
                 
-                print(f"✅ Completed in {result.total_time_seconds:.2f}s")
-                print(f"   Steps/sec: {result.steps_per_second:.2f}")
-                print(f"   Final Loss: {result.final_loss:.4f}")
-                print(f"   Memory Usage: {result.memory_usage_mb:.1f} MB")
+                # Finalize experiment tracking
+                final_metrics = {
+                    'val_loss': result.final_loss,
+                    'val_accuracy': result.final_accuracy,
+                    'memory_usage_mb': result.memory_usage_mb
+                }
+                timing_summary = {
+                    'steps_per_second': result.steps_per_second,
+                    'total_time_seconds': result.total_time_seconds
+                }
+                self.tracker.finalize_experiment(final_metrics, timing_summary)
+                
+                self.tracker.log(f"✅ Completed in {result.total_time_seconds:.2f}s")
+                self.tracker.log(f"   Steps/sec: {result.steps_per_second:.2f}")
+                self.tracker.log(f"   Final Loss: {result.final_loss:.4f}")
+                self.tracker.log(f"   Memory Usage: {result.memory_usage_mb:.1f} MB")
                 
             except Exception as e:
-                print(f"❌ Experiment failed: {e}")
+                self.tracker.log(f"❌ Experiment failed: {e}")
                 continue
+        
+        # Print records summary
+        self.tracker.print_records_summary()
         
         return self.results
     
@@ -317,16 +337,29 @@ def main():
                        help="Output file for results")
     args = parser.parse_args()
     
-    # Run experiments
-    experiments = TrainingSpeedExperiments()
-    results = experiments.run_all_experiments()
+    # Initialize record tracking
+    tracker = get_tracker()
+    tracker.log("🚀 Starting Training Speed Experiments")
+    tracker.log(f"📁 Output file: {args.output}")
     
-    # Save and summarize results
-    experiments.save_results(args.output)
-    experiments.print_summary()
-    
-    print(f"\n✅ All experiments completed!")
-    print(f"📁 Results saved to: {args.output}")
+    try:
+        # Run experiments
+        experiments = TrainingSpeedExperiments()
+        results = experiments.run_all_experiments()
+        
+        # Save and summarize results
+        experiments.save_results(args.output)
+        experiments.print_summary()
+        
+        tracker.log(f"\n✅ All experiments completed!")
+        tracker.log(f"📁 Results saved to: {args.output}")
+        
+    except Exception as e:
+        tracker.log(f"❌ Experiments failed: {e}")
+        raise
+    finally:
+        # Cleanup
+        tracker.cleanup()
 
 
 if __name__ == "__main__":
