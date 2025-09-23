@@ -41,6 +41,7 @@ class SpeedrunConfig:
     prefetch_factor: int
     max_steps: int = 10
     eval_every: int = 5
+    eval_steps: int = 10  # Limit validation batches for speed
 
 
 @dataclass
@@ -79,7 +80,8 @@ class TrainingSpeedrunChallenge:
                 pin_memory=False,
                 prefetch_factor=2,
                 max_steps=10,
-                eval_every=5
+                eval_every=5,
+                eval_steps=10
             ),
             
             # Memory Optimized Configuration
@@ -94,7 +96,8 @@ class TrainingSpeedrunChallenge:
                 pin_memory=True,
                 prefetch_factor=2,
                 max_steps=10,
-                eval_every=5
+                eval_every=5,
+                eval_steps=10
             )
         ]
         return configs
@@ -170,6 +173,7 @@ class TrainingSpeedrunChallenge:
         model_config.use_fp16_matmul = config.use_fp16_matmul
         model_config.max_steps = config.max_steps
         model_config.eval_every = config.eval_every
+        model_config.eval_steps = config.eval_steps
         
         # Auto-size dataset for speedrun
         model_config.num_documents = 2000

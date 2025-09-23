@@ -204,8 +204,10 @@ def train_model_with_timing(
             
             # Evaluation
             if step % config.eval_every == 0 and step > 0:
+                max_eval_batches = getattr(config, 'eval_steps', 50)
+                actual_batches = min(max_eval_batches, len(val_loader))
                 print(f"\n🔍 Running validation at step {step}...")
-                print(f"   📊 Evaluating on {len(val_loader)} batches...")
+                print(f"   📊 Evaluating on {actual_batches} batches (limited from {len(val_loader)})...")
                 val_start = time.time()
                 eval_metrics = evaluate_model_with_timing(model, val_loader, config)
                 val_time = time.time() - val_start
@@ -274,8 +276,13 @@ def evaluate_model_with_timing(
     
     device = next(model.parameters()).device
     
+    # Limit evaluation batches for speed (use config.eval_steps or default to 50)
+    max_eval_batches = getattr(config, 'eval_steps', 50)
+    
     with torch.no_grad():
-        for x, y in val_loader:
+        for i, (x, y) in enumerate(val_loader):
+            if i >= max_eval_batches:
+                break
             with timer.time_data_loading():
                 x, y = x.to(device), y.to(device)
             
@@ -315,10 +322,11 @@ def evaluate_model_with_timing(
     
     model.train()
     
-    # Calculate metrics
-    avg_loss = total_loss / len(val_loader)
-    avg_aux_loss = total_aux_loss / len(val_loader)
-    accuracy = correct / total
+    # Calculate metrics based on actual number of batches processed
+    num_batches_processed = min(max_eval_batches, len(val_loader))
+    avg_loss = total_loss / num_batches_processed
+    avg_aux_loss = total_aux_loss / num_batches_processed
+    accuracy = correct / total if total > 0 else 0.0
     perplexity = math.exp(min(avg_loss, 20))
     
     metrics = {
