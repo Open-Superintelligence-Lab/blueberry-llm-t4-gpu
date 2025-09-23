@@ -113,11 +113,11 @@ def main():
     texts, tokenizer, tokens = load_and_cache_data(temp_config)
     vocab_size = temp_config.vocab_size
 
-    # Create base config for learning rate sweep (2x steps)
+    # Create base config for comprehensive learning rate sweep
     base_config = MoEModelConfig(
         vocab_size=vocab_size,
-        max_steps=40,  # 2x steps: 40 steps total
-        eval_every=10,  # Evaluate at steps 10, 20, 30, 40
+        max_steps=200,  # Comprehensive training: 200 steps total
+        eval_every=40,  # Evaluate at steps 40, 80, 120, 160, 200 (5 evaluations)
         batch_size=24,
         muon_lr=0.01  # Base learning rate
     )
@@ -135,8 +135,8 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=base_config.batch_size, shuffle=False, num_workers=0)
 
     print(f"📊 Dataset: {len(train_dataset)} train, {len(val_dataset)} val samples")
-    print(f"📊 Learning rate sweep: {base_config.max_steps} steps total")
-    print(f"📊 Evaluation at steps: 10, 20, 30, 40")
+    print(f"📊 Comprehensive learning rate sweep: {base_config.max_steps} steps total")
+    print(f"📊 Evaluation at steps: 40, 80, 120, 160, 200 (5 evaluations)")
 
     # Learning rates to test (comprehensive sweep)
     learning_rates = [0.001, 0.01, 0.05, 0.1, 0.2]
