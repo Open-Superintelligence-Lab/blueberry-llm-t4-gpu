@@ -39,9 +39,9 @@ class SpeedrunConfig:
     num_workers: int
     pin_memory: bool
     prefetch_factor: int
-    max_steps: int = 10
-    eval_every: int = 5
-    eval_steps: int = 10  # Limit validation batches for speed
+    max_steps: int = 50
+    eval_every: int = 25
+    eval_steps: int = 15  # Limit validation batches for speed
 
 
 @dataclass
@@ -79,9 +79,9 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=False,
                 prefetch_factor=2,
-                max_steps=10,
+                max_steps=50,
                 eval_every=5,
-                eval_steps=10
+                eval_steps=20
             ),
             
             # Memory Optimized Configuration
@@ -95,9 +95,9 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=True,
                 prefetch_factor=2,
-                max_steps=10,
+                max_steps=50,
                 eval_every=5,
-                eval_steps=10
+                eval_steps=20
             )
         ]
         return configs
