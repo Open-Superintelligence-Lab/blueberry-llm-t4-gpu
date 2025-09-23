@@ -113,11 +113,11 @@ def main():
     texts, tokenizer, tokens = load_and_cache_data(temp_config)
     vocab_size = temp_config.vocab_size
 
-    # Create base config with extended training (3x longer) and more frequent evaluation
+    # Create base config with short training and specific evaluation points
     base_config = MoEModelConfig(
         vocab_size=vocab_size,
-        max_steps=60,  # 3x longer than original 20 steps
-        eval_every=5,  # More frequent evaluation (every 5 steps instead of 10)
+        max_steps=20,  # Short training: 20 steps total
+        eval_every=10,  # Evaluate at steps 10 and 20
         batch_size=24,
         muon_lr=0.01  # Base learning rate
     )
@@ -135,11 +135,11 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=base_config.batch_size, shuffle=False, num_workers=0)
 
     print(f"📊 Dataset: {len(train_dataset)} train, {len(val_dataset)} val samples")
-    print(f"📊 Extended training: {base_config.max_steps} steps (3x longer)")
-    print(f"📊 Evaluation frequency: every {base_config.eval_every} steps")
+    print(f"📊 Short training: {base_config.max_steps} steps total")
+    print(f"📊 Evaluation at steps: 10 and 20")
 
-    # Learning rates to test
-    learning_rates = [0.001, 0.01, 0.05, 0.1]
+    # Learning rates to test (only 2 experiments)
+    learning_rates = [0.01, 0.1]
     
     # Store results for comparison
     results = {}
