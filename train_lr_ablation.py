@@ -1,5 +1,6 @@
 import torch
 import time
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from torch.utils.data import DataLoader
@@ -8,6 +9,10 @@ from data.loader import load_and_cache_data
 from data.dataset import TextTokenDataset
 from training.trainer import train_moe_model
 from utils.helpers import set_seed
+
+# Set environment variables to fix warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["TORCH_COMPILE_DISABLE"] = "1"  # Disable torch.compile to avoid inductor warnings
 
 
 def train_with_lr(config: MoEModelConfig, train_loader: DataLoader, val_loader: DataLoader, lr: float, run_name: str):
@@ -126,8 +131,8 @@ def main():
         dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42)
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=base_config.batch_size, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=base_config.batch_size, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=base_config.batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=base_config.batch_size, shuffle=False, num_workers=0)
 
     print(f"📊 Dataset: {len(train_dataset)} train, {len(val_dataset)} val samples")
     print(f"📊 Extended training: {base_config.max_steps} steps (3x longer)")
