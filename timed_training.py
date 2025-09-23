@@ -204,11 +204,16 @@ def train_model_with_timing(
             
             # Evaluation
             if step % config.eval_every == 0 and step > 0:
+                print(f"\n🔍 Running validation at step {step}...")
+                print(f"   📊 Evaluating on {len(val_loader)} batches...")
+                val_start = time.time()
                 eval_metrics = evaluate_model_with_timing(model, val_loader, config)
+                val_time = time.time() - val_start
+                print(f"   ✅ Validation completed in {val_time:.2f}s")
                 
                 # Update record tracker with validation results
                 tracker.update_validation(step, eval_metrics['val_loss'], 
-                                        eval_metrics['val_accuracy'], 0)  # val_time_ms not available
+                                        eval_metrics['val_accuracy'], val_time * 1000)
                 
                 # Check for best model
                 if eval_metrics['val_loss'] < best_val_loss:

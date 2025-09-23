@@ -6,7 +6,7 @@ Minimal training speed comparison between baseline and memory-optimized configur
 ## Challenge Details
 - **Baseline**: Standard T4-optimized configuration
 - **Memory Optimized**: Smaller batch size (8) with higher gradient accumulation (4)
-- **Steps per experiment**: 50
+- **Steps per experiment**: 10
 - **Goal**: Establish performance measurement standards
 
 ## Performance Metrics

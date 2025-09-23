@@ -39,8 +39,8 @@ class SpeedrunConfig:
     num_workers: int
     pin_memory: bool
     prefetch_factor: int
-    max_steps: int = 50
-    eval_every: int = 25
+    max_steps: int = 10
+    eval_every: int = 5
 
 
 @dataclass
@@ -78,8 +78,8 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=False,
                 prefetch_factor=2,
-                max_steps=50,
-                eval_every=25
+                max_steps=10,
+                eval_every=5
             ),
             
             # Memory Optimized Configuration
@@ -93,8 +93,8 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=True,
                 prefetch_factor=2,
-                max_steps=50,
-                eval_every=25
+                max_steps=10,
+                eval_every=5
             )
         ]
         return configs
@@ -178,18 +178,26 @@ class TrainingSpeedrunChallenge:
         print(f"   Loading {model_config.num_documents} documents...")
         
         # Load data
+        print("   📚 Loading and tokenizing data...")
         texts, tokenizer, tokens = load_and_cache_data(model_config)
+        print("   ✅ Data loaded successfully")
+        
+        print("   🔧 Creating dataset...")
         dataset = TextTokenDataset(tokens, model_config.max_seq_len)
+        print(f"   ✅ Dataset created with {len(dataset)} samples")
         
         # Train/val split
+        print("   🔄 Splitting dataset into train/val...")
         val_size = len(dataset) // 10
         train_size = len(dataset) - val_size
         train_dataset, val_dataset = random_split(
             dataset, [train_size, val_size], 
             generator=torch.Generator().manual_seed(42)
         )
+        print(f"   ✅ Split complete: {len(train_dataset)} train, {len(val_dataset)} val")
         
         # Create optimized data loaders
+        print("   🔧 Creating data loaders...")
         train_loader = DataLoader(
             train_dataset,
             batch_size=model_config.batch_size,
@@ -209,14 +217,19 @@ class TrainingSpeedrunChallenge:
             prefetch_factor=config.prefetch_factor,
             persistent_workers=True if config.num_workers > 0 else False
         )
-        
-        print(f"   Dataset: {len(train_dataset)} train, {len(val_dataset)} val samples")
+        print(f"   ✅ Data loaders created (batch_size={model_config.batch_size}, workers={config.num_workers})")
         
         # Create model
+        print("   🧠 Creating model...")
         model = MoEMinimalLLM(model_config)
+        print(f"   ✅ Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
         
         # Train the model with timing
-        print("   Starting training...")
+        print("   🚀 Starting training...")
+        print(f"   📊 Training for {config.max_steps} steps")
+        print(f"   🔧 Batch size: {model_config.batch_size}")
+        print(f"   🔧 Gradient accumulation: {model_config.gradient_accumulation_steps}")
+        print(f"   🔧 Mixed precision: {model_config.use_amp}")
         training_start = time.time()
         
         model, final_metrics = train_model_with_timing(
