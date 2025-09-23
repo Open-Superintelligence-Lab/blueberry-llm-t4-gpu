@@ -28,6 +28,12 @@ def parse_arguments():
     )
     
     # Single T4 GPU training
+    parser.add_argument(
+        '--time-limit', 
+        type=int, 
+        default=1,
+        help='Maximum training time in minutes (default: 1 minute)'
+    )
     
     return parser.parse_args()
 
@@ -94,9 +100,11 @@ def main():
     
     # Train the model
     print("\n🚀 Starting training...")
+    if args.time_limit:
+        print(f"⏰ Time limit: {args.time_limit} minutes")
     
     # Use legacy training pipeline for T4-optimized training
-    model, final_metrics = train_moe_model(model_config, train_loader, val_loader)
+    model, final_metrics = train_moe_model(model_config, train_loader, val_loader, args.time_limit)
     
     # Save results
     print("\n💾 Saving model...")
