@@ -39,8 +39,8 @@ class SpeedrunConfig:
     num_workers: int
     pin_memory: bool
     prefetch_factor: int
-    max_steps: int = 1000
-    eval_every: int = 100
+    max_steps: int = 150
+    eval_every: int = 50
 
 
 @dataclass
@@ -78,8 +78,8 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=False,
                 prefetch_factor=2,
-                max_steps=1000,
-                eval_every=100
+                max_steps=150,
+                eval_every=50
             ),
             
             # Memory Optimized Configuration
@@ -93,8 +93,8 @@ class TrainingSpeedrunChallenge:
                 num_workers=2,
                 pin_memory=True,
                 prefetch_factor=2,
-                max_steps=1000,
-                eval_every=100
+                max_steps=150,
+                eval_every=50
             )
         ]
         return configs
