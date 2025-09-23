@@ -323,7 +323,7 @@ def evaluate_model_with_timing(
         'val_perplexity': perplexity
     }
     
-    prefix = "📊 Final" if final else f"Step {timer.metrics.total_steps}"
+    prefix = "📊 Final" if final else f"Step {len(timer.metrics.step_times)}"
     print(f"\n{prefix} Evaluation:")
     print(f"   Val Loss: {avg_loss:.4f}")
     print(f"   Val Accuracy: {accuracy:.4f}")
