@@ -23,7 +23,7 @@ sys.path.insert(0, current_dir)
 from core.t4_config import t4_configure
 from legacy.llm import load_and_cache_data, TextTokenDataset, MoEMinimalLLM
 from configs.t4_moe_config import T4MoEModelConfig
-from timed_training import train_model_with_timing
+from timed_training import train_moe_model_timed
 from record_tracker import get_tracker
 
 
@@ -224,8 +224,8 @@ class TrainingSpeedrunChallenge:
         print("   🚀 Starting training...")
         training_start = time.time()
         
-        model, final_metrics = train_model_with_timing(
-            model, train_loader, val_loader, model_config, experiment_name=config.name
+        model, final_metrics = train_moe_model_timed(
+            model_config, train_loader, val_loader, time_limit_minutes=1
         )
         
         training_time = time.time() - training_start

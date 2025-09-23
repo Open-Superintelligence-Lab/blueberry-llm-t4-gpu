@@ -93,18 +93,19 @@ def train_moe_model_timed(config: MoEModelConfig, train_loader: DataLoader, val_
     time_limited = TimeLimitedTraining(time_limit_minutes)
     
     with time_limited.time_limit_context():
-        # Initialize model
-        from legacy.llm import set_seed, MoEMinimalLLM, setup_muon_optimizer
+        # Import required modules
+        from legacy.llm import set_seed, MoEMinimalLLM, setup_muon_optimizer, evaluate_model
         import torch.nn.functional as F
         from torch.cuda.amp import autocast, GradScaler
         import math
         from tqdm import tqdm
         
+        # Initialize model
         set_seed(42)
         model = MoEMinimalLLM(config)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-    
+        model = model.to(device)
+
         # Count parameters
         total_params = sum(p.numel() for p in model.parameters())
         active_params = sum(p.numel() for n, p in model.named_parameters()
@@ -137,70 +138,77 @@ def train_moe_model_timed(config: MoEModelConfig, train_loader: DataLoader, val_
 
         # Training loop with time limit
         model.train()
-    step = 0
+        step = 0
         pbar = tqdm(total=config.max_steps, desc="Training MoE")
         
         # Track training metrics
         training_start_time = time.time()
-    best_val_loss = float('inf')
+        best_val_loss = float('inf')
+        max_time_seconds = time_limit_minutes * 60
 
         while step < config.max_steps and not time_limited.interrupted:
             # Check time limit
-            if time_limited.is_time_up():
+            elapsed_time = time.time() - training_start_time
+            if elapsed_time >= max_time_seconds:
                 print(f"\n⏰ Time limit reached ({time_limit_minutes} minutes)")
                 break
                 
             for batch_idx, (x, y) in enumerate(train_loader):
-                if step >= config.max_steps or time_limited.interrupted or time_limited.is_time_up():
-                break
-            
-            x, y = x.to(device), y.to(device)
-            
-            # Forward pass
-            if config.use_amp:
+                if step >= config.max_steps or time_limited.interrupted:
+                    break
+                
+                # Check time limit during batch processing
+                elapsed_time = time.time() - training_start_time
+                if elapsed_time >= max_time_seconds:
+                    break
+
+                x, y = x.to(device), y.to(device)
+
+                # Forward pass
+                if config.use_amp:
                     with autocast():
                         logits, aux_loss = model(x, return_aux_loss=True)
                         ce_loss = F.cross_entropy(logits.view(-1, config.vocab_size), y.view(-1))
 
                         # Combine main loss and auxiliary loss
+                        total_loss = ce_loss
+                        if aux_loss is not None:
+                            total_loss = total_loss + aux_loss
+
+                        loss = total_loss / config.gradient_accumulation_steps
+                    scaler.scale(loss).backward()
+                else:
+                    logits, aux_loss = model(x, return_aux_loss=True)
+                    ce_loss = F.cross_entropy(logits.view(-1, config.vocab_size), y.view(-1))
+
                     total_loss = ce_loss
                     if aux_loss is not None:
                         total_loss = total_loss + aux_loss
-                    
+
                     loss = total_loss / config.gradient_accumulation_steps
-                    scaler.scale(loss).backward()
-            else:
-                    logits, aux_loss = model(x, return_aux_loss=True)
-                    ce_loss = F.cross_entropy(logits.view(-1, config.vocab_size), y.view(-1))
-                
-                total_loss = ce_loss
-                if aux_loss is not None:
-                    total_loss = total_loss + aux_loss
-                
-                loss = total_loss / config.gradient_accumulation_steps
-                loss.backward()
-            
+                    loss.backward()
+
                 # Optimizer step
                 if (step + 1) % config.gradient_accumulation_steps == 0:
-                if config.use_amp:
-                    for optimizer in optimizers:
-                        scaler.unscale_(optimizer)
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
-                    
-                    for optimizer in optimizers:
-                        scaler.step(optimizer)
+                    if config.use_amp:
+                        for optimizer in optimizers:
+                            scaler.unscale_(optimizer)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+
+                        for optimizer in optimizers:
+                            scaler.step(optimizer)
                             optimizer.zero_grad()
-                    for scheduler in schedulers:
-                        scheduler.step()
+                        for scheduler in schedulers:
+                            scheduler.step()
                         scaler.update()
-                else:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
-                    for optimizer in optimizers:
-                        optimizer.step()
+                    else:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+                        for optimizer in optimizers:
+                            optimizer.step()
                             optimizer.zero_grad()
-                    for scheduler in schedulers:
-                        scheduler.step()
-            
+                        for scheduler in schedulers:
+                            scheduler.step()
+
                 # Logging with time info
                 if step % 100 == 0:
                     with torch.no_grad():
@@ -210,10 +218,10 @@ def train_moe_model_timed(config: MoEModelConfig, train_loader: DataLoader, val_
                         perplexity = math.exp(min(current_loss, 20))
                     
                     # Calculate remaining time
-                    remaining_minutes = time_limited.get_remaining_time() / 60
-                    elapsed_minutes = time_limited.get_elapsed_time() / 60
+                    remaining_minutes = (max_time_seconds - elapsed_time) / 60
+                    elapsed_minutes = elapsed_time / 60
 
-                pbar.set_postfix({
+                    pbar.set_postfix({
                         'loss': f'{current_loss:.4f}',
                         'aux': f'{aux_loss.item() if aux_loss is not None else 0:.4f}',
                         'acc': f'{accuracy:.3f}',
@@ -221,34 +229,31 @@ def train_moe_model_timed(config: MoEModelConfig, train_loader: DataLoader, val_
                         'time': f'{elapsed_minutes:.1f}m/{time_limit_minutes}m',
                         'left': f'{remaining_minutes:.1f}m'
                     })
-            
-            # Evaluation
-            if step % config.eval_every == 0 and step > 0:
-                    from legacy.llm import evaluate_model
+
+                # Evaluation
+                if step % config.eval_every == 0 and step > 0:
                     eval_metrics = evaluate_model(model, val_loader, config)
                     print(f"\nStep {step}: Val Loss: {eval_metrics['val_loss']:.4f}, "
                           f"Val Acc: {eval_metrics['val_accuracy']:.4f}, "
                           f"Val PPL: {eval_metrics['val_perplexity']:.2f}")
                     
                     # Track best model
-                if eval_metrics['val_loss'] < best_val_loss:
-                    best_val_loss = eval_metrics['val_loss']
+                    if eval_metrics['val_loss'] < best_val_loss:
+                        best_val_loss = eval_metrics['val_loss']
                         print(f"🎉 New best validation loss: {best_val_loss:.4f}")
 
                 # Milestone evaluations
                 if step in getattr(config, 'log_milestones', ()):    
-                    from legacy.llm import evaluate_model
                     eval_metrics = evaluate_model(model, val_loader, config)
                     print(f"\n🧪 Milestone {step}: Val Loss: {eval_metrics['val_loss']:.4f}")
 
                 step += 1
                 if step % 20 == 0:
                     pbar.update(20)
-    
-    pbar.close()
-    
-    # Final evaluation
-        from legacy.llm import evaluate_model
+
+        pbar.close()
+
+        # Final evaluation
         final_eval = evaluate_model(model, val_loader, config)
         
         # Calculate final training metrics
@@ -265,7 +270,7 @@ def train_moe_model_timed(config: MoEModelConfig, train_loader: DataLoader, val_
         
         if time_limited.interrupted:
             print(f"   ⚠️  Training was interrupted by user")
-        elif time_limited.is_time_up():
+        elif elapsed_time >= max_time_seconds:
             print(f"   ⏰ Training stopped due to time limit")
         else:
             print(f"   ✅ Training completed normally")
@@ -277,121 +282,7 @@ def train_moe_model_timed(config: MoEModelConfig, train_loader: DataLoader, val_
             'steps_per_second': step / total_training_time if total_training_time > 0 else 0,
             'best_val_loss': best_val_loss,
             'interrupted': time_limited.interrupted,
-            'time_limit_reached': time_limited.is_time_up()
+            'time_limit_reached': elapsed_time >= max_time_seconds
         })
 
         return model, final_eval
-
-
-def parse_arguments():
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Time-limited T4-optimized training for Blueberry LLM",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    
-    parser.add_argument(
-        '--time-limit', 
-        type=int, 
-        default=1,
-        help='Maximum training time in minutes (default: 1 minute)'
-    )
-    
-    parser.add_argument(
-        '--max-steps',
-        type=int,
-        default=1000,
-        help='Maximum number of training steps'
-    )
-    
-    return parser.parse_args()
-
-
-def main():
-    print("🫐 Starting Blueberry LLM Time-Limited T4-Training")
-    
-    # Parse arguments
-    args = parse_arguments()
-    
-    print(f"⏰ Time limit: {args.time_limit} minutes")
-    print(f"📊 Max steps: {args.max_steps}")
-    
-    # T4-configure everything
-    configurator = t4_configure()
-    
-    # Single T4 GPU training
-    print("🚀 Single T4 GPU training")
-    
-    configurator.print_config()
-    
-    # Print detailed GPU system information
-    print("\n🔍 Detailed GPU System Information:")
-    print("=" * 50)
-    from system import print_system_info
-    print_system_info()
-    print("=" * 50)
-    
-    # Get model configuration
-    model_config = MoEModelConfig()
-    model_config.max_steps = args.max_steps
-    
-    # Auto-size dataset for T4 GPU
-    model_config.num_documents = 2000
-    model_config.max_tokens = 200000
-    
-    print(f"\n📊 Loading {model_config.num_documents} documents, {model_config.max_tokens:,} tokens...")
-    
-    # Load data
-    texts, tokenizer, tokens = load_and_cache_data(model_config)
-    dataset = TextTokenDataset(tokens, model_config.max_seq_len)
-    
-    # Train/val split
-    val_size = len(dataset) // 10
-    train_size = len(dataset) - val_size
-    train_dataset, val_dataset = random_split(
-        dataset, [train_size, val_size], 
-        generator=torch.Generator().manual_seed(42)
-    )
-    
-    # Create data loaders for single T4 GPU
-    train_loader = DataLoader(
-        train_dataset, 
-        batch_size=model_config.batch_size, 
-        shuffle=True, 
-        num_workers=2
-    )
-    val_loader = DataLoader(
-        val_dataset, 
-        batch_size=model_config.batch_size, 
-        shuffle=False, 
-        num_workers=2
-    )
-    
-    print(f"   Dataset: {len(train_dataset)} train, {len(val_dataset)} val samples")
-    
-    # Train the model with time limit
-    print(f"\n🚀 Starting time-limited training...")
-    
-    model, final_metrics = train_moe_model_timed(model_config, train_loader, val_loader, args.time_limit)
-    
-    # Save results
-    print("\n💾 Saving model...")
-    torch.save({
-        'model_state_dict': model.state_dict(),
-        'config': model_config,
-        't4_config': configurator.config,
-        'tokenizer': tokenizer,
-        'final_metrics': final_metrics,
-        'time_limit_minutes': args.time_limit
-    }, 'blueberry_model_timed.pt')
-    
-    print("✅ Training complete!")
-    print(f"   Final validation loss: {final_metrics['val_loss']:.4f}")
-    print(f"   Final validation accuracy: {final_metrics['val_accuracy']:.4f}")
-    print(f"   Training time: {final_metrics['training_time_minutes']:.1f} minutes")
-    print(f"   Steps completed: {final_metrics['steps_completed']}")
-    print(f"   Model saved as: blueberry_model_timed.pt")
-
-
-if __name__ == "__main__":
-    main()
