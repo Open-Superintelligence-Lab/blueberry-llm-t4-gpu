@@ -524,10 +524,18 @@ class MomentumWarmupExperiment:
         # Plot 3: Momentum schedules visualization
         plt.subplot(2, 2, 3)
         for schedule_name in schedules[:4]:  # Show first 4 schedules
-            scheduler = MomentumWarmupScheduler(schedule_name, self.config.max_steps)
-            steps = range(0, self.config.max_steps, 10)
-            momentums = [scheduler.get_momentum(s) for s in steps]
-            plt.plot(steps, momentums, label=schedule_name, linewidth=2)
+            # Find the schedule config
+            schedule_config = None
+            for config in self.config.momentum_schedules:
+                if config['name'] == schedule_name:
+                    schedule_config = config
+                    break
+            
+            if schedule_config:
+                scheduler = MomentumWarmupScheduler(schedule_config, self.config.training_config['max_steps'])
+                steps = range(0, self.config.training_config['max_steps'], 10)
+                momentums = [scheduler.get_momentum(s) for s in steps]
+                plt.plot(steps, momentums, label=schedule_name, linewidth=2)
         plt.title('Momentum Schedules')
         plt.xlabel('Training Step')
         plt.ylabel('Momentum Value')
@@ -568,10 +576,10 @@ class MomentumWarmupExperiment:
 What is the optimal momentum warmup schedule for Muon optimizer on T4 hardware?
 
 ## Experiment Configuration
-- Model: MoE with {self.config.num_experts} experts, {self.config.d_model}d model
-- Training Steps: {self.config.max_steps}
-- Batch Size: {self.config.batch_size}
-- Number of Runs per Schedule: {self.config.num_runs}
+- Model: MoE with {self.config.model_config['num_experts']} experts, {self.config.model_config['d_model']}d model
+- Training Steps: {self.config.training_config['max_steps']}
+- Batch Size: {self.config.model_config['batch_size']}
+- Number of Runs per Schedule: {self.config.training_config['num_runs_per_schedule']}
 - Hardware: T4 GPU
 
 ## Results Summary
