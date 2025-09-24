@@ -321,7 +321,8 @@ class MomentumWarmupExperiment:
                     break
                 
                 batch_start_time = time.time()
-                x, y = x.to(model.device), y.to(model.device)
+                device = next(model.parameters()).device
+                x, y = x.to(device), y.to(device)
                 
                 # Forward pass
                 if self.config.training_config['use_amp']:
