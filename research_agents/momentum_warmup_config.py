@@ -247,6 +247,11 @@ QUICK_EXPERIMENT = MomentumWarmupExperimentConfig(
     training_config={
         'max_steps': 200,
         'num_runs_per_schedule': 2,
+        'base_lr': 0.01,
+        'weight_decay': 0.1,
+        'grad_clip': 1.0,
+        'use_amp': True,
+        'gradient_accumulation_steps': 4,
     },
     momentum_schedules=[
         {'name': 'fixed_095', 'type': 'fixed', 'momentum': 0.95, 'warmup_steps': 0},
