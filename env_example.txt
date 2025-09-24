@@ -1,0 +1,8 @@
+# OpenRouter API Key for AI agents
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# Optional: Site URL for OpenRouter rankings
+OPENROUTER_SITE_URL=https://github.com/your-username/blueberry-llm-t4-gpu
+
+# Optional: Site name for OpenRouter rankings  
+OPENROUTER_SITE_NAME=Blueberry LLM T4 GPU

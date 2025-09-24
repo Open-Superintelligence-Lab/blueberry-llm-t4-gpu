@@ -1,0 +1,32 @@
+{
+  "auto_review_threshold": 7.0,
+  "auto_improve_threshold": 5.0,
+  "max_experiments_per_suggestion": 5,
+  "auto_start_runner": false,
+  "review_timeout_minutes": 30,
+  "improvement_iterations": 3,
+  "gpu_optimization": {
+    "max_batch_size": 32,
+    "max_sequence_length": 1024,
+    "max_experts": 16,
+    "memory_safety_margin": 0.8
+  },
+  "research_domains": {
+    "moe_architecture": {
+      "weight": 0.3,
+      "focus_areas": ["expert_routing", "load_balancing", "specialization"]
+    },
+    "optimization": {
+      "weight": 0.25,
+      "focus_areas": ["learning_rates", "optimizers", "scheduling"]
+    },
+    "evaluation": {
+      "weight": 0.2,
+      "focus_areas": ["metrics", "benchmarks", "analysis"]
+    },
+    "efficiency": {
+      "weight": 0.25,
+      "focus_areas": ["memory", "speed", "compression"]
+    }
+  }
+}

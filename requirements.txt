@@ -3,6 +3,10 @@ transformers
 torchtune
 torchao
 matplotlib
+openai
+tqdm
+numpy
+pandas
 
 # Single T4 GPU training
 # tensorstore
