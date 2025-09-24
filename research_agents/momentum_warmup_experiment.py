@@ -194,19 +194,19 @@ class MomentumWarmupExperiment:
         """Setup model and data loaders"""
         # Create config for this experiment
         model_config = MoEModelConfig(
-            d_model=self.config.d_model,
-            n_heads=self.config.n_heads,
-            n_layers=self.config.n_layers,
-            d_ff=self.config.d_ff,
-            batch_size=self.config.batch_size,
-            max_steps=self.config.max_steps,
-            max_seq_len=self.config.max_seq_len,
-            num_experts=self.config.num_experts,
-            expert_top_k=self.config.expert_top_k,
+            d_model=self.config.model_config['d_model'],
+            n_heads=self.config.model_config['n_heads'],
+            n_layers=self.config.model_config['n_layers'],
+            d_ff=self.config.model_config['d_ff'],
+            batch_size=self.config.model_config['batch_size'],
+            max_steps=self.config.training_config['max_steps'],
+            max_seq_len=self.config.model_config['max_seq_len'],
+            num_experts=self.config.model_config['num_experts'],
+            expert_top_k=self.config.model_config['expert_top_k'],
             vocab_size=vocab_size,
-            eval_every=self.config.eval_every,
-            eval_steps=self.config.eval_steps,
-            use_amp=self.config.use_amp
+            eval_every=self.config.evaluation_config['eval_every'],
+            eval_steps=self.config.evaluation_config['eval_steps'],
+            use_amp=self.config.training_config['use_amp']
         )
         
         # Initialize model
