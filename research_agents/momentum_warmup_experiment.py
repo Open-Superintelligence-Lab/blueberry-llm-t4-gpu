@@ -83,52 +83,76 @@ class MomentumWarmupConfig:
 class MomentumWarmupScheduler:
     """Handles different momentum warmup schedules"""
     
-    def __init__(self, schedule_type: str, max_steps: int, warmup_steps: int = None):
-        self.schedule_type = schedule_type
+    def __init__(self, schedule_config: Dict[str, Any], max_steps: int):
+        self.schedule_config = schedule_config
+        self.schedule_type = schedule_config['type']
         self.max_steps = max_steps
-        self.warmup_steps = warmup_steps or max_steps // 4  # Default to 25% warmup
+        self.warmup_steps = schedule_config.get('warmup_steps', max_steps // 4)
         self.step = 0
         
     def get_momentum(self, step: int) -> float:
         """Get momentum value for current step"""
         self.step = step
         
-        if self.schedule_type == "fixed_095":
-            return 0.95
-        elif self.schedule_type == "fixed_090":
-            return 0.90
-        elif self.schedule_type == "fixed_099":
-            return 0.99
-        elif self.schedule_type == "linear_warmup":
+        if self.schedule_type == "fixed":
+            return self.schedule_config['momentum']
+        elif self.schedule_type == "linear":
+            start_momentum = self.schedule_config['start_momentum']
+            end_momentum = self.schedule_config['end_momentum']
             if step < self.warmup_steps:
-                return 0.95 * (step / self.warmup_steps)
-            return 0.95
-        elif self.schedule_type == "cosine_warmup":
-            if step < self.warmup_steps:
-                return 0.95 * 0.5 * (1 - math.cos(math.pi * step / self.warmup_steps))
-            return 0.95
-        elif self.schedule_type == "exponential_warmup":
-            if step < self.warmup_steps:
-                # Exponential from 0.1 to 0.95
                 progress = step / self.warmup_steps
-                return 0.1 + 0.85 * (1 - math.exp(-5 * progress))
-            return 0.95
-        elif self.schedule_type == "step_warmup":
-            # Step-wise: 0.5 -> 0.7 -> 0.85 -> 0.95
-            if step < self.warmup_steps // 4:
-                return 0.5
-            elif step < self.warmup_steps // 2:
-                return 0.7
-            elif step < 3 * self.warmup_steps // 4:
-                return 0.85
-            elif step < self.warmup_steps:
-                return 0.95
-            return 0.95
-        elif self.schedule_type == "adaptive_warmup":
-            # This would need gradient variance tracking - placeholder for now
+                return start_momentum + (end_momentum - start_momentum) * progress
+            return end_momentum
+        elif self.schedule_type == "cosine":
+            start_momentum = self.schedule_config['start_momentum']
+            end_momentum = self.schedule_config['end_momentum']
             if step < self.warmup_steps:
-                return 0.95 * (step / self.warmup_steps)
-            return 0.95
+                progress = step / self.warmup_steps
+                cosine_factor = 0.5 * (1 - math.cos(math.pi * progress))
+                return start_momentum + (end_momentum - start_momentum) * cosine_factor
+            return end_momentum
+        elif self.schedule_type == "exponential":
+            start_momentum = self.schedule_config['start_momentum']
+            end_momentum = self.schedule_config['end_momentum']
+            exponent = self.schedule_config.get('exponent', 2.0)
+            if step < self.warmup_steps:
+                progress = step / self.warmup_steps
+                exp_factor = math.pow(progress, exponent)
+                return start_momentum + (end_momentum - start_momentum) * exp_factor
+            return end_momentum
+        elif self.schedule_type == "step":
+            steps = self.schedule_config['steps']
+            if step < self.warmup_steps:
+                step_size = self.warmup_steps // len(steps)
+                step_index = min(step // step_size, len(steps) - 1)
+                return steps[step_index]
+            return steps[-1]
+        elif self.schedule_type == "adaptive":
+            # Simplified adaptive - would need gradient variance tracking
+            base_momentum = self.schedule_config['base_momentum']
+            if step < self.warmup_steps:
+                progress = step / self.warmup_steps
+                return base_momentum * progress
+            return base_momentum
+        elif self.schedule_type == "delayed_linear":
+            start_momentum = self.schedule_config['start_momentum']
+            end_momentum = self.schedule_config['end_momentum']
+            delay_steps = self.schedule_config['delay_steps']
+            if step < delay_steps:
+                return start_momentum
+            elif step < delay_steps + self.warmup_steps:
+                progress = (step - delay_steps) / self.warmup_steps
+                return start_momentum + (end_momentum - start_momentum) * progress
+            return end_momentum
+        elif self.schedule_type == "sigmoid":
+            start_momentum = self.schedule_config['start_momentum']
+            end_momentum = self.schedule_config['end_momentum']
+            steepness = self.schedule_config.get('steepness', 5.0)
+            if step < self.warmup_steps:
+                progress = step / self.warmup_steps
+                sigmoid_factor = 1 / (1 + math.exp(-steepness * (progress - 0.5)))
+                return start_momentum + (end_momentum - start_momentum) * sigmoid_factor
+            return end_momentum
         else:
             raise ValueError(f"Unknown schedule type: {self.schedule_type}")
 
@@ -211,10 +235,11 @@ class MomentumWarmupExperiment:
         
         return model, train_loader, val_loader, model_config
     
-    def train_with_schedule(self, schedule_name: str, run_id: int, 
+    def train_with_schedule(self, schedule_config: Dict[str, Any], run_id: int, 
                            model: nn.Module, train_loader: DataLoader, 
                            val_loader: DataLoader, model_config: MoEModelConfig) -> Dict:
         """Train model with specific momentum schedule"""
+        schedule_name = schedule_config['name']
         print(f"\n🧪 Training with schedule: {schedule_name} (run {run_id})")
         
         # Reset model weights
@@ -223,7 +248,7 @@ class MomentumWarmupExperiment:
         
         # Setup momentum scheduler
         momentum_scheduler = MomentumWarmupScheduler(
-            schedule_name, self.config.max_steps
+            schedule_config, self.config.training_config['max_steps']
         )
         
         # Setup optimizers with momentum warmup
@@ -241,38 +266,39 @@ class MomentumWarmupExperiment:
         
         muon_optimizer = MuonWithMomentumWarmup(
             muon_params, 
-            lr=self.config.base_lr, 
+            lr=self.config.training_config['base_lr'], 
             momentum=0.95,  # Will be overridden by scheduler
             momentum_scheduler=momentum_scheduler
         )
         adamw_optimizer = torch.optim.AdamW(
             adamw_params, 
-            lr=self.config.base_lr * 0.1, 
-            weight_decay=self.config.weight_decay
+            lr=self.config.training_config['base_lr'] * 0.1, 
+            weight_decay=self.config.training_config['weight_decay']
         )
         
         optimizers = [muon_optimizer, adamw_optimizer]
         
         # Learning rate schedulers
         schedulers = []
+        max_steps = self.config.training_config['max_steps']
         for optimizer in optimizers:
-            warmup_steps = self.config.max_steps // 20
+            warmup_steps = max_steps // 20
             def lr_lambda(step):
                 if step < warmup_steps:
                     return step / warmup_steps
                 else:
-                    progress = (step - warmup_steps) / (self.config.max_steps - warmup_steps)
+                    progress = (step - warmup_steps) / (max_steps - warmup_steps)
                     return 0.1 + 0.9 * 0.5 * (1 + math.cos(math.pi * progress))
             
             scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
             schedulers.append(scheduler)
         
-        scaler = GradScaler() if self.config.use_amp else None
+        scaler = GradScaler() if self.config.training_config['use_amp'] else None
         
         # Training loop
         model.train()
         step = 0
-        pbar = tqdm(total=self.config.max_steps, desc=f"{schedule_name} (run {run_id})")
+        pbar = tqdm(total=max_steps, desc=f"{schedule_name} (run {run_id})")
         
         # Metrics tracking
         metrics = {
@@ -289,16 +315,16 @@ class MomentumWarmupExperiment:
         
         start_time = time.time()
         
-        while step < self.config.max_steps:
+        while step < max_steps:
             for batch_idx, (x, y) in enumerate(train_loader):
-                if step >= self.config.max_steps:
+                if step >= max_steps:
                     break
                 
                 batch_start_time = time.time()
                 x, y = x.to(model.device), y.to(model.device)
                 
                 # Forward pass
-                if self.config.use_amp:
+                if self.config.training_config['use_amp']:
                     with autocast('cuda', dtype=torch.float16):
                         logits, aux_loss = model(x, return_aux_loss=True)
                         ce_loss = F.cross_entropy(logits.view(-1, model_config.vocab_size), y.view(-1))
@@ -314,10 +340,10 @@ class MomentumWarmupExperiment:
                 
                 # Optimizer step
                 if (step + 1) % model_config.gradient_accumulation_steps == 0:
-                    if self.config.use_amp:
+                    if self.config.training_config['use_amp']:
                         for optimizer in optimizers:
                             scaler.unscale_(optimizer)
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.grad_clip)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.training_config['grad_clip'])
                         
                         for optimizer in optimizers:
                             scaler.step(optimizer)
@@ -326,7 +352,7 @@ class MomentumWarmupExperiment:
                             scheduler.step()
                         scaler.update()
                     else:
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.grad_clip)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.training_config['grad_clip'])
                         for optimizer in optimizers:
                             optimizer.step()
                             optimizer.zero_grad()
@@ -347,7 +373,7 @@ class MomentumWarmupExperiment:
                 metrics['training_times'].append(batch_time)
                 
                 # Evaluation
-                if step % self.config.eval_every == 0 and step > 0:
+                if step % self.config.evaluation_config['eval_every'] == 0 and step > 0:
                     eval_start_time = time.time()
                     eval_metrics = evaluate_model(model, val_loader, model_config)
                     eval_time = time.time() - eval_start_time
@@ -398,21 +424,22 @@ class MomentumWarmupExperiment:
     def run_experiment(self, vocab_size: int):
         """Run the complete momentum warmup experiment"""
         print(f"🚀 Starting Momentum Warmup Experiment")
-        print(f"📊 Testing {len(self.config.warmup_schedules)} schedules")
-        print(f"🔄 {self.config.num_runs} runs per schedule")
-        print(f"⏱️ {self.config.max_steps} steps per run")
+        print(f"📊 Testing {len(self.config.momentum_schedules)} schedules")
+        print(f"🔄 {self.config.training_config['num_runs_per_schedule']} runs per schedule")
+        print(f"⏱️ {self.config.training_config['max_steps']} steps per run")
         
         # Setup model and data once
         model, train_loader, val_loader, model_config = self.setup_model_and_data(vocab_size)
         
         all_results = []
         
-        for schedule_name in self.config.warmup_schedules:
+        for schedule_config in self.config.momentum_schedules:
+            schedule_name = schedule_config['name']
             schedule_results = []
             
-            for run_id in range(self.config.num_runs):
+            for run_id in range(self.config.training_config['num_runs_per_schedule']):
                 result = self.train_with_schedule(
-                    schedule_name, run_id, model, train_loader, val_loader, model_config
+                    schedule_config, run_id, model, train_loader, val_loader, model_config
                 )
                 schedule_results.append(result)
                 all_results.append(result)
