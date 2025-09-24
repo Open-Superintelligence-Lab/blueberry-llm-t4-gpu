@@ -19,7 +19,7 @@ import time
 import json
 import os
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Tuple, Optional, Callable
+from typing import Dict, List, Tuple, Optional, Callable, Any
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from tqdm import tqdm
