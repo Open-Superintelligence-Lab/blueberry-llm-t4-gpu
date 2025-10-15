@@ -27,14 +27,18 @@ def main():
     # Use MoE config and set vocab_size
     config = MoEModelConfig(vocab_size=vocab_size)
 
-    dataset = TextTokenDataset(tokens, config.max_seq_len)
+
 
     # Train/val split
-    val_size = len(dataset) // 10
-    train_size = len(dataset) - val_size
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42)
-    )
+    val_split_ratio = 0.1
+    val_token_start = int(len(tokens) * (1 - val_split_ratio))
+
+    train_token = tokens[:val_token_start]
+    val_token = tokens[val_token_start:]
+
+    train_dataset = TextTokenDataset(train_token, config.max_seq_len)
+    val_dataset = TextTokenDataset(val_token, config.max_seq_len)
+
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=2)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, num_workers=2)
