@@ -21,6 +21,7 @@ class MoEMinimalLLM(nn.Module):
             MoETransformerBlock(
                 config.d_model,
                 config.n_heads,
+                config.kv_heads,
                 config.d_ff,
                 config.max_seq_len,
                 config.num_experts,

@@ -18,13 +18,16 @@ class Rotary(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model: int, n_heads: int, max_seq_len: int, dropout: float = 0.1):
+    def __init__(self, d_model: int, n_heads: int, kv_heads:int, max_seq_len: int, dropout: float = 0.1):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
+        self.kv_heads = kv_heads
         self.d_k = d_model // n_heads
+        assert self.d_k * n_heads == d_model, "d_model must be divisible by n_heads."
+        self.n_rep = n_heads // kv_heads
 
-        self.qkv = nn.Linear(d_model, d_model * 3, bias=False)
+        self.qkv = nn.Linear(d_model, d_model + (kv_heads * self.d_k * 2), bias=False)
         self.w_o = nn.Linear(d_model, d_model, bias=False)
         self.rotary = Rotary(self.d_k, max_seq_len)
         self.dropout = dropout
@@ -35,15 +38,22 @@ class MultiHeadAttention(nn.Module):
         # qkv = self.qkv(x).reshape(B, T, 3, self.n_heads, self.d_k).permute(2, 0, 3, 1, 4)
         # Q, K, V = qkv[0], qkv[1], qkv[2]  # [B, H, T, D]
 
-        qkv = self.qkv(x).reshape(batch_size, seq_len, 3, self.n_heads, self.d_k)
-        qkv = qkv.permute(2, 0, 3, 1, 4)
-        Q, K, V = qkv[0], qkv[1], qkv[2] # [B, H, T, D]
+        qkv = self.qkv(x)
+        Q, K, V = qkv.split((self.d_model, self.kv_heads * self.d_k, self.kv_heads * self.d_k), dim=-1)
+
+        Q = Q.view(batch_size, seq_len, self.n_heads, self.d_k)
+        K = K.view(batch_size, seq_len, self.kv_heads, self.d_k)
+        V = V.view(batch_size, seq_len, self.kv_heads, self.d_k)
 
         # Q = self.rotary(Q)
         # K = self.rotary(K)
-        # Apply RoPE on [B, T, H, D]
-        Q = self.rotary(Q.transpose(1, 2)).transpose(1, 2)
-        K = self.rotary(K.transpose(1, 2)).transpose(1, 2)
+        Q = self.rotary(Q)
+        K = self.rotary(K)
+
+        K = torch.repeat_interleave(K, self.n_rep, dim=2)
+        V = torch.repeat_interleave(V, self.n_rep, dim=2)
+
+        Q, K, V = Q.transpose(1, 2), K.transpose(1, 2), V.transpose(1, 2)
 
         attn_output = F.scaled_dot_product_attention(
             Q, K, V, is_causal=True, dropout_p=self.dropout if self.training else 0.0
@@ -59,6 +69,7 @@ class MoETransformerBlock(nn.Module):
         self,
         d_model: int,
         n_heads: int,
+        kv_heads:int,
         d_ff: int,
         max_seq_len: int,
         num_experts: int = 8,
@@ -68,7 +79,7 @@ class MoETransformerBlock(nn.Module):
         super().__init__()
 
         # Attention layer
-        self.attention = MultiHeadAttention(d_model, n_heads, max_seq_len, dropout)
+        self.attention = MultiHeadAttention(d_model, n_heads, kv_heads, max_seq_len, dropout)
 
         # MoE layer
         self.feed_forward = MixtureOfExperts(
