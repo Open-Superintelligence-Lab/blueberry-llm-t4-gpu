@@ -7,7 +7,7 @@ class MoEModelConfig:
     # Model architecture
     d_model: int = 384
     n_heads: int = 8
-    kv_heads: int = 8
+    kv_heads: int = 4
     n_layers: int = 6
     d_ff: int = 1536
     batch_size: int = 24
