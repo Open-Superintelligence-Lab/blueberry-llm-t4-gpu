@@ -1,7 +1,5 @@
 # Blueberry LLM 🫐 - T4 Optimized
 
-BUG that needs fixing - data slide window should be seq len, now it's just one token, so too much repetitive data, also split train - validation data.
-
 A Tesla T4 GPU-optimized Mixture of Experts (MoE) language model implementation.
 
 **Goal: Make LLM training accessible on T4 GPUs** - optimized specifically for Tesla T4 GPU performance with automatic configuration and hardware optimization to create state of the art LLM on single T4 GPU.
