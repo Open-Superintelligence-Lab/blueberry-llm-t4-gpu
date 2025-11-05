@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torchtune.modules import RotaryPositionalEmbeddings
 from .components import MixtureOfExperts
 from xformers.ops import memory_efficient_attention, LowerTriangularMask
