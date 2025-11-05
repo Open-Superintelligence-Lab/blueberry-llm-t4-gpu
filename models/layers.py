@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchtune.modules import RotaryPositionalEmbeddings
 from .components import MixtureOfExperts
+from xformers.ops import memory_efficient_attention, LowerTriangularMask
 
 
 class Rotary(nn.Module):
@@ -55,8 +56,8 @@ class MultiHeadAttention(nn.Module):
 
         Q, K, V = Q.transpose(1, 2), K.transpose(1, 2), V.transpose(1, 2)
 
-        attn_output = F.scaled_dot_product_attention(
-            Q, K, V, is_causal=True, dropout_p=self.dropout if self.training else 0.0
+        attn_output = memory_efficient_attention(
+            Q, K, V, attn_bias=LowerTriangularMask(), p=self.dropout
         )
         attn_output = attn_output.transpose(1, 2).reshape(batch_size, seq_len, self.d_model)
         # attn_output = attn_output.transpose(1, 2).reshape(B, T, self.d_model)
