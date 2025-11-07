@@ -12,6 +12,7 @@ class MoEModelConfig:
     d_ff: int = 1536
     batch_size: int = 24
     max_steps: int = 500
+    use_mem_efficient_attention: bool = False
 
     # Training parameters
     gradient_accumulation_steps: int = 4

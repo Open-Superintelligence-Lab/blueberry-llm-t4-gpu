@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 import math
-from typing import Optional
 from configs.moe_config import MoEModelConfig
 from models.layers import MoETransformerBlock
 
 
 class MoEMinimalLLM(nn.Module):
     """Minimal LLM with Mixture of Experts"""
+
     def __init__(self, config: MoEModelConfig):
         super().__init__()
         self.config = config
@@ -17,19 +17,22 @@ class MoEMinimalLLM(nn.Module):
         self.position_dropout = nn.Dropout(config.dropout)
 
         # Transformer blocks with MoE
-        self.transformer_blocks = nn.ModuleList([
-            MoETransformerBlock(
-                config.d_model,
-                config.n_heads,
-                config.kv_heads,
-                config.d_ff,
-                config.max_seq_len,
-                config.num_experts,
-                config.expert_top_k,
-                config.dropout
-            )
-            for i in range(config.n_layers)
-        ])
+        self.transformer_blocks = nn.ModuleList(
+            [
+                MoETransformerBlock(
+                    config.d_model,
+                    config.n_heads,
+                    config.kv_heads,
+                    config.d_ff,
+                    config.max_seq_len,
+                    config.num_experts,
+                    config.expert_top_k,
+                    config.dropout,
+                    config.use_mem_efficient_attention,
+                )
+                for i in range(config.n_layers)
+            ]
+        )
 
         # Output layers
         self.norm = nn.RMSNorm(config.d_model)
